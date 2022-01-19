@@ -221,15 +221,15 @@ void WebResourceLoader::didReceiveResponse(ResourceResponse&& response, PrivateR
     m_coreLoader->didReceiveResponse(response, WTFMove(policyDecisionCompletionHandler));
 }
 
-void WebResourceLoader::didReceiveData(const IPC::SharedBufferCopy& data, int64_t encodedDataLength)
+void WebResourceLoader::didReceiveData(IPC::SharedBufferCopy&& data, int64_t encodedDataLength)
 {
     LOG(Network, "(WebProcess) WebResourceLoader::didReceiveData of size %lu for '%s'", data.size(), m_coreLoader->url().string().latin1().data());
     ASSERT_WITH_MESSAGE(!m_isProcessingNetworkResponse, "Network process should not send data until we've validated the response");
 
     if (UNLIKELY(m_interceptController.isIntercepting(m_coreLoader->identifier()))) {
-        m_interceptController.defer(m_coreLoader->identifier(), [this, protectedThis = Ref { *this }, buffer = data.buffer(), encodedDataLength]() mutable {
+        m_interceptController.defer(m_coreLoader->identifier(), [this, protectedThis = Ref { *this }, data = WTFMove(data), encodedDataLength]() mutable {
             if (m_coreLoader)
-                didReceiveData(IPC::SharedBufferCopy(WTFMove(buffer)), encodedDataLength);
+                didReceiveData(WTFMove(data), encodedDataLength);
         });
         return;
     }
