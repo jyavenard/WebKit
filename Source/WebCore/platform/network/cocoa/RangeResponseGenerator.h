@@ -42,7 +42,7 @@ struct ParsedRequestRange;
 class PlatformMediaResource;
 class ResourceResponse;
 
-class RangeResponseGenerator : public ThreadSafeRefCounted<RangeResponseGenerator, WTF::DestructionThread::Main>, public CanMakeWeakPtr<RangeResponseGenerator> {
+class RangeResponseGenerator : public ThreadSafeRefCounted<RangeResponseGenerator>, public CanMakeWeakPtr<RangeResponseGenerator> {
 public:
     static Ref<RangeResponseGenerator> create(WTF::WorkQueue& targetQueue) { return adoptRef(*new RangeResponseGenerator(targetQueue)); }
     ~RangeResponseGenerator();

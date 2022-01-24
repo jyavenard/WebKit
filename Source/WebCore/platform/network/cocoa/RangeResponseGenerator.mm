@@ -40,8 +40,10 @@ namespace WebCore {
 
 struct RangeResponseGenerator::Data {
     WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    // The RangeResponseGenerator is used with a WorkQueue which can do thread hoping over time.
+    // The ResourceResponse contains WTF::Strings which must first be copied via isolatedCopy().
     Data(const ResourceResponse& response, PlatformMediaResource& resource)
-        : originalResponse(response)
+        : originalResponse(ResourceResponse::fromCrossThreadData(response.crossThreadData()))
         , resource(&resource) { }
 
     struct TaskData : public CanMakeWeakPtr<TaskData> {

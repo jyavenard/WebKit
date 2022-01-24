@@ -299,7 +299,9 @@ NS_ASSUME_NONNULL_END
     self.delegate = inDelegate;
     _queue = inQueue ? inQueue : [NSOperationQueue mainQueue];
     _internalQueue = WTF::WorkQueue::create("WebCoreNSURLSession _internalQueue");
-    _rangeResponseGenerator = RangeResponseGenerator::create(*_targetQueue);
+    _targetQueue->dispatch([strongSelf = retainPtr(self)] {
+        strongSelf->_rangeResponseGenerator = RangeResponseGenerator::create(*strongSelf->_targetQueue);
+    });
 
     return self;
 }
@@ -308,7 +310,7 @@ NS_ASSUME_NONNULL_END
 {
     {
         Locker<Lock> locker(_dataTasksLock);
-        _targetQueue->dispatch([dataTasks = WTFMove(_dataTasks)] () mutable {
+        _targetQueue->dispatch([dataTasks = WTFMove(_dataTasks), rangeResponseGenerator = WTFMove(_rangeResponseGenerator)] () mutable {
             for (auto&& task : dataTasks)
                 [task setSession:nil];
         });
