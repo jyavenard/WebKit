@@ -727,7 +727,7 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
     self.taskIdentifier = identifier;
     self.state = NSURLSessionTaskStateSuspended;
     self.priority = NSURLSessionTaskPriorityDefault;
-    _session = session;
+    self.session = session;
     _targetQueue = targetQueue;
 
     // CoreMedia will explicitly add a user agent header. Remove if present.
@@ -828,14 +828,16 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
 
 - (WebCoreNSURLSession *)session
 {
-    // TODO: Not thread safe access: from OperationQueue / MainThread and Loader thread.
-    return _session.get().get();
+    @synchronized(self) {
+        return _session.get().autorelease();
+    }
 }
 
 - (void)setSession:(WebCoreNSURLSession *)session
 {
-    // Access from main thread, operation queue thread and loader thread.
-    _session = session;
+    @synchronized(self) {
+        _session = session;
+    }
 }
 
 - (NSURLResponse *)response

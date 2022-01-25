@@ -126,7 +126,7 @@ WEBCORE_EXPORT @interface WebCoreNSURLSession : NSObject {
 
 // Created on com.apple.avfoundation.customurl.nsurlsession
 @interface WebCoreNSURLSessionDataTask : NSObject {
-    WeakObjCPtr<WebCoreNSURLSession> _session;
+    WeakObjCPtr<WebCoreNSURLSession> _session; // Accesssed from operation queue, main and loader thread. Must be accessed through Obj-C property.
     RefPtr<WTF::WorkQueue> _targetQueue;
     RefPtr<WebCore::PlatformMediaResource> _resource;
     RetainPtr<NSURLResponse> _response; // Set on operation queue.
