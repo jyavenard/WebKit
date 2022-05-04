@@ -29,29 +29,109 @@
 #include "Decoder.h"
 #include "Encoder.h"
 #include "WebCoreArgumentCoders.h"
+#include <WebCore/ProcessIdentity.h>
 
 namespace IPC {
 
 using namespace WebCore;
+using namespace WebKit;
 
 void SharedBufferCopy::encode(Encoder& encoder) const
 {
+#if USE(UNIX_DOMAIN_SOCKETS)
     encoder << m_buffer;
+#else
+    bool isNull = !m_buffer;
+    encoder << isNull;
+    if (isNull)
+        return;
+    uint64_t bufferSize = m_buffer->size();
+    encoder << bufferSize;
+    if (!bufferSize)
+        return;
+
+    SharedMemory::Handle handle;
+    {
+        auto sharedMemoryBuffer = SharedMemory::copyBuffer(*m_buffer);
+        sharedMemoryBuffer->createHandle(handle, SharedMemory::Protection::ReadOnly);
+    }
+    encoder << SharedMemory::IPCHandle { WTFMove(handle), bufferSize };
+#endif
 }
 
 std::optional<SharedBufferCopy> SharedBufferCopy::decode(Decoder& decoder)
 {
     RefPtr<SharedBuffer> buffer;
+#if USE(UNIX_DOMAIN_SOCKETS)
     if (!decoder.decode(buffer))
         return std::nullopt;
     return { IPC::SharedBufferCopy(WTFMove(buffer)) };
+#else
+    std::optional<bool> isNull;
+    decoder >> isNull;
+    if (!isNull)
+        return std::nullopt;
+
+    if (*isNull)
+        return { IPC::SharedBufferCopy(WTFMove(buffer)) };
+
+    uint64_t bufferSize = 0;
+    if (!decoder.decode(bufferSize))
+        return std::nullopt;
+
+    if (!bufferSize) {
+        buffer = SharedBuffer::create();
+        return { IPC::SharedBufferCopy(WTFMove(buffer)) };
+    }
+
+    SharedMemory::IPCHandle ipcHandle;
+    if (!decoder.decode(ipcHandle))
+        return std::nullopt;
+
+    auto sharedMemoryBuffer = SharedMemory::map(ipcHandle.handle, SharedMemory::Protection::ReadOnly);
+    if (!sharedMemoryBuffer)
+        return std::nullopt;
+
+    if (sharedMemoryBuffer->size() < bufferSize)
+        return std::nullopt;
+
+    return { IPC::SharedBufferCopy(sharedMemoryBuffer.releaseNonNull(), bufferSize) };
+#endif
+}
+
+RefPtr<WebCore::SharedBuffer> SharedBufferCopy::buffer() const
+{
+    if (m_buffer)
+        return m_buffer->makeContiguous();
+
+    if (!m_memory)
+        return nullptr;
+
+    return m_memory->createSharedBuffer(m_size);
 }
 
 const uint8_t* SharedBufferCopy::data() const
 {
-    if (!m_buffer)
+    if ((!m_buffer || !m_buffer->isContiguous()) && !m_memory)
         return nullptr;
-    return downcast<SharedBuffer>(m_buffer.get())->data();
+    if (m_buffer)
+        return downcast<SharedBuffer>(m_buffer.get())->data();
+    return static_cast<uint8_t*>(m_memory->data());
+}
+
+RefPtr<WebCore::SharedBuffer> SharedBufferCopy::bufferWithOwner(const WebCore::ProcessIdentity& identity, WebKit::MemoryLedger memoryLedger) const
+{
+    if (!m_size || !m_memory)
+        return SharedBuffer::create();
+    SharedMemory::Handle handle;
+    auto sharedMemory = SharedMemory::allocate(m_size);
+    if (!sharedMemory)
+        return nullptr;
+    memcpy(sharedMemory->data(), m_memory->data(), m_size);
+    sharedMemory->createHandle(handle, SharedMemory::Protection::ReadOnly);
+    handle.transferOwnershipOfMemory(identity, memoryLedger);
+
+    return sharedMemory->createSharedBuffer(m_size);
 }
 
 } // namespace IPC

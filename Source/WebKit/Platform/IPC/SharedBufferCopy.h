@@ -29,7 +29,13 @@
 #pragma once
 
 #include "DataReference.h"
+#include "SharedMemory.h"
 #include <WebCore/SharedBuffer.h>
+#include <optional>
+
+namespace WebCore {
+class ProcessIdentity;
+}
 
 namespace IPC {
 
@@ -39,33 +45,49 @@ class Encoder;
 class SharedBufferCopy {
 public:
     SharedBufferCopy() = default;
-
     explicit SharedBufferCopy(RefPtr<WebCore::FragmentedSharedBuffer>&& buffer)
-        : m_buffer(WTFMove(buffer)) { }
+        : m_size(buffer ? buffer->size() : 0)
+        , m_buffer(WTFMove(buffer)) { }
     explicit SharedBufferCopy(Ref<WebCore::FragmentedSharedBuffer>&& buffer)
-        : m_buffer(WTFMove(buffer)) { }
+        : m_size(buffer->size())
+        , m_buffer(WTFMove(buffer)) { }
     explicit SharedBufferCopy(RefPtr<WebCore::SharedBuffer>&& buffer)
-        : m_buffer(WTFMove(buffer)) { }
+        : m_size(buffer ? buffer->size() : 0)
+        , m_buffer(WTFMove(buffer)) { }
     explicit SharedBufferCopy(Ref<WebCore::SharedBuffer>&& buffer)
-        : m_buffer(WTFMove(buffer)) { }
+        : m_size(buffer->size())
+        , m_buffer(WTFMove(buffer)) { }
     explicit SharedBufferCopy(const WebCore::FragmentedSharedBuffer& buffer)
-        : m_buffer(const_cast<WebCore::FragmentedSharedBuffer*>(&buffer)) { }
+        : m_size(buffer.size())
+        , m_buffer(const_cast<WebCore::FragmentedSharedBuffer*>(&buffer)) { }
 
-    size_t size() const { return m_buffer ? m_buffer->size() : 0; }
-    bool isEmpty() const { return m_buffer ? m_buffer->isEmpty() : true; }
+    SharedBufferCopy(const SharedBufferCopy&) = default;
+    SharedBufferCopy(SharedBufferCopy&&) = default;
+    SharedBufferCopy& operator=(const SharedBufferCopy&) = default;
+    SharedBufferCopy& operator=(SharedBufferCopy&&) = default;
 
-    // The following methods must only be used on the receiver's IPC side.
+    size_t size() const { return m_size; }
+    bool isEmpty() const { return !size(); }
+
+    RefPtr<WebCore::SharedBuffer> buffer() const;
+    // Return a new SharedBuffer assigned to the remote ProcessIdentity if possible.
+    RefPtr<WebCore::SharedBuffer> bufferWithOwner(const WebCore::ProcessIdentity&, WebKit::MemoryLedger) const;
+    // The following method must only be used on the receiver's IPC side.
     // It relies on an implementation detail that makes m_buffer becomes a contiguous SharedBuffer
     // once it's deserialised over IPC.
-    RefPtr<WebCore::SharedBuffer> buffer() const { return downcast<WebCore::SharedBuffer>(m_buffer.get()); }
-    Ref<WebCore::SharedBuffer> safeBuffer() const { return m_buffer ? buffer().releaseNonNull() : WebCore::SharedBuffer::create(); }
     const uint8_t* data() const;
 
     void encode(Encoder&) const;
     static WARN_UNUSED_RETURN std::optional<SharedBufferCopy> decode(Decoder&);
 
 private:
+    SharedBufferCopy(Ref<WebKit::SharedMemory>&& memory, size_t size)
+        : m_size(size)
+        , m_memory(WTFMove(memory)) { }
+
+    size_t m_size;
     RefPtr<WebCore::FragmentedSharedBuffer> m_buffer;
+    RefPtr<WebKit::SharedMemory> m_memory;
 };
 
 } // namespace IPC
