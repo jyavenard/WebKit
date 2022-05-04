@@ -7261,7 +7261,8 @@ void WebPage::urlSchemeTaskDidReceiveData(WebURLSchemeHandlerIdentifier handlerI
     auto* handler = m_identifierToURLSchemeHandlerProxyMap.get(handlerIdentifier);
     ASSERT(handler);
 
-    handler->taskDidReceiveData(taskIdentifier, data.safeBuffer());
+    RefPtr<SharedBuffer> buffer = data.isEmpty() ? WebCore::SharedBuffer::create() : data.buffer();
+    handler->taskDidReceiveData(taskIdentifier, buffer.releaseNonNull());
 }
 
 void WebPage::urlSchemeTaskDidComplete(WebURLSchemeHandlerIdentifier handlerIdentifier, WebCore::ResourceLoaderIdentifier taskIdentifier, const ResourceError& error)
@@ -7460,7 +7461,7 @@ void WebPage::updateAttachmentAttributes(const String& identifier, std::optional
     if (auto attachment = attachmentElementWithIdentifier(identifier)) {
         attachment->document().updateLayout();
         attachment->updateAttributes(WTFMove(fileSize), AtomString { contentType }, AtomString { fileName });
-        attachment->updateEnclosingImageWithData(contentType, enclosingImageData.safeBuffer());
+        attachment->updateEnclosingImageWithData(contentType, enclosingImageData.isEmpty() ? WebCore::SharedBuffer::create() : enclosingImageData.buffer().releaseNonNull());
     }
     callback();
 }

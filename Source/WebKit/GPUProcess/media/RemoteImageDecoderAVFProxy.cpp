@@ -48,7 +48,7 @@ RemoteImageDecoderAVFProxy::RemoteImageDecoderAVFProxy(GPUConnectionToWebProcess
 
 void RemoteImageDecoderAVFProxy::createDecoder(const IPC::SharedBufferCopy& data, const String& mimeType, CompletionHandler<void(std::optional<ImageDecoderIdentifier>&&)>&& completionHandler)
 {
-    auto imageDecoder = ImageDecoderAVFObjC::create(data.safeBuffer(), mimeType, AlphaOption::Premultiplied, GammaAndColorProfileOption::Ignored);
+    auto imageDecoder = ImageDecoderAVFObjC::create(data.isEmpty() ? SharedBuffer::create() : data.buffer().releaseNonNull(), mimeType, AlphaOption::Premultiplied, GammaAndColorProfileOption::Ignored);
 
     std::optional<ImageDecoderIdentifier> imageDecoderIdentifier;
     if (!imageDecoder)
@@ -103,7 +103,7 @@ void RemoteImageDecoderAVFProxy::setData(ImageDecoderIdentifier identifier, cons
     }
 
     auto imageDecoder = m_imageDecoders.get(identifier);
-    imageDecoder->setData(data.safeBuffer(), allDataReceived);
+    imageDecoder->setData(data.isEmpty() ? SharedBuffer::create() : data.buffer().releaseNonNull(), allDataReceived);
 
     auto frameCount = imageDecoder->frameCount();
 

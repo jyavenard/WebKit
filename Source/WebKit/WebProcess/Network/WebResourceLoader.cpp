@@ -238,7 +238,7 @@ void WebResourceLoader::didReceiveData(const IPC::SharedBufferCopy& data, int64_
         WEBRESOURCELOADER_RELEASE_LOG("didReceiveData: Started receiving data");
     m_numBytesReceived += data.size();
 
-    m_coreLoader->didReceiveData(data.safeBuffer(), encodedDataLength, DataPayloadBytes);
+    m_coreLoader->didReceiveData(data.isEmpty() ? SharedBuffer::create() : data.buffer().releaseNonNull(), encodedDataLength, DataPayloadBytes);
 }
 
 void WebResourceLoader::didFinishResourceLoad(const NetworkLoadMetrics& networkLoadMetrics)
