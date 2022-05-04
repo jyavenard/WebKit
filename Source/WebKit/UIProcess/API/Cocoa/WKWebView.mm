@@ -1738,7 +1738,7 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
             return;
         }
 
-        auto data = pdfData.buffer()->createCFData();
+        auto data = pdfData.unsafeBuffer()->createCFData();
         handler((NSData *)data.get(), nil);
     });
 }

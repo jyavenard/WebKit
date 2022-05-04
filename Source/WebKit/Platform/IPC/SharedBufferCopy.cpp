@@ -99,30 +99,37 @@ std::optional<SharedBufferCopy> SharedBufferCopy::decode(Decoder& decoder)
 #endif
 }
 
-RefPtr<WebCore::SharedBuffer> SharedBufferCopy::buffer() const
+RefPtr<WebCore::SharedBuffer> SharedBufferCopy::unsafeBuffer() const
 {
-    if (m_buffer)
-        return m_buffer->makeContiguous();
+    RELEASE_ASSERT_WITH_MESSAGE(isEmpty() || (!m_buffer && m_memory), "Must only be called on IPC's receiver side");
 
-    if (!m_memory)
+    if (isNull())
         return nullptr;
+    if (m_buffer)
+        return downcast<WebCore::SharedBuffer>(m_buffer.get());
 
     return m_memory->createSharedBuffer(m_size);
 }
 
 const uint8_t* SharedBufferCopy::data() const
 {
-    if ((!m_buffer || !m_buffer->isContiguous()) && !m_memory)
+    RELEASE_ASSERT_WITH_MESSAGE(isEmpty() || (!m_buffer && m_memory), "Must only be called on IPC's receiver side");
+
+    if (isNull())
         return nullptr;
     if (m_buffer)
         return downcast<SharedBuffer>(m_buffer.get())->data();
+
     return static_cast<uint8_t*>(m_memory->data());
 }
 
 RefPtr<WebCore::SharedBuffer> SharedBufferCopy::bufferWithOwner(const WebCore::ProcessIdentity& identity, WebKit::MemoryLedger memoryLedger) const
 {
-    if (!m_size || !m_memory)
-        return SharedBuffer::create();
+    if (isNull())
+        return nullptr;
+    if (m_buffer)
+        return m_buffer->makeContiguous();
+
     SharedMemory::Handle handle;
     auto sharedMemory = SharedMemory::allocate(m_size);
     if (!sharedMemory)

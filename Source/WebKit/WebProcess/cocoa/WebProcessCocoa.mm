@@ -1271,9 +1271,9 @@ void WebProcess::consumeAudioComponentRegistrations(const IPC::SharedBufferCopy&
     if (!PAL::isAudioToolboxCoreFrameworkAvailable() || !PAL::canLoad_AudioToolboxCore_AudioComponentApplyServerRegistrations())
         return;
 
-    if (!data.buffer())
+    if (data.isNull())
         return;
-    auto registrations = data.buffer()->createCFData();
+    auto registrations = data.unsafeBuffer()->createCFData();
 
     auto err = AudioComponentApplyServerRegistrations(registrations.get());
     if (noErr != err)

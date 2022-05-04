@@ -68,13 +68,14 @@ public:
 
     size_t size() const { return m_size; }
     bool isEmpty() const { return !size(); }
+    bool isNull() const { return isEmpty() && !m_buffer; }
 
-    RefPtr<WebCore::SharedBuffer> buffer() const;
     // Return a new SharedBuffer assigned to the remote ProcessIdentity if possible.
     RefPtr<WebCore::SharedBuffer> bufferWithOwner(const WebCore::ProcessIdentity&, WebKit::MemoryLedger) const;
-    // The following method must only be used on the receiver's IPC side.
+    // The following methods must only be used on the receiver's IPC side.
     // It relies on an implementation detail that makes m_buffer becomes a contiguous SharedBuffer
     // once it's deserialised over IPC.
+    RefPtr<WebCore::SharedBuffer> unsafeBuffer() const;
     const uint8_t* data() const;
 
     void encode(Encoder&) const;
@@ -87,7 +88,7 @@ private:
 
     size_t m_size;
     RefPtr<WebCore::FragmentedSharedBuffer> m_buffer;
-    RefPtr<WebKit::SharedMemory> m_memory;
+    RefPtr<WebKit::SharedMemory> m_memory; // Only set on the receiver side and if m_size isn't 0.
 };
 
 } // namespace IPC
