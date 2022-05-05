@@ -130,13 +130,13 @@ RefPtr<WebCore::SharedBuffer> SharedBufferCopy::bufferWithOwner(const WebCore::P
     if (m_buffer)
         return m_buffer->makeContiguous();
 
-    SharedMemory::Handle handle;
     auto sharedMemory = SharedMemory::allocate(m_size);
     if (!sharedMemory)
         return nullptr;
-    memcpy(sharedMemory->data(), m_memory->data(), m_size);
+    SharedMemory::Handle handle;
     sharedMemory->createHandle(handle, SharedMemory::Protection::ReadOnly);
     handle.transferOwnershipOfMemory(identity, memoryLedger);
+    memcpy(sharedMemory->data(), m_memory->data(), m_size);
 
     return sharedMemory->createSharedBuffer(m_size);
 }
