@@ -30,6 +30,7 @@
 
 #include "DataReference.h"
 #include "RemoteMediaResourceManagerMessages.h"
+#include "SharedBufferCopy.h"
 #include "SharedMemory.h"
 #include "WebCoreArgumentCoders.h"
 #include <wtf/CompletionHandler.h>
