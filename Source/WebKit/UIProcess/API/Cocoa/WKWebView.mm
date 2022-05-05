@@ -53,7 +53,6 @@
 #import "ResourceLoadDelegate.h"
 #import "SafeBrowsingWarning.h"
 #import "SessionStateCoding.h"
-#import "SharedBufferCopy.h"
 #import "UIDelegate.h"
 #import "VideoFullscreenManagerProxy.h"
 #import "ViewGestureController.h"
@@ -1732,15 +1731,15 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
     if (pdfConfiguration && !CGRectIsNull(pdfConfiguration.rect))
         floatRect = WebCore::FloatRect(pdfConfiguration.rect);
 
-    _page->drawToPDF(frameID, floatRect, [handler = makeBlockPtr(completionHandler)](const IPC::SharedBufferCopy& pdfData) {
-        if (pdfData.isEmpty()) {
-            handler(nil, createNSError(WKErrorUnknown).get());
-            return;
-        }
+    _page->drawToPDF(frameID, floatRect, [handler = makeBlockPtr(completionHandler)](RefPtr<WebCore::SharedBuffer>&& pdfData) {
+        if (!pdfData || pdfData->isEmpty()) {
+             handler(nil, createNSError(WKErrorUnknown).get());
+             return;
+         }
 
-        auto data = pdfData.unsafeBuffer()->createCFData();
-        handler((NSData *)data.get(), nil);
-    });
+         auto data = pdfData->createCFData();
+         handler((NSData *)data.get(), nil);
+     });
 }
 
 - (void)createWebArchiveDataWithCompletionHandler:(void (^)(NSData *, NSError *))completionHandler

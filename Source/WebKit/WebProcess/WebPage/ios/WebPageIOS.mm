@@ -4365,7 +4365,7 @@ void WebPage::drawToPDFiOS(WebCore::FrameIdentifier frameID, const PrintInfo& pr
 
     RetainPtr<CFMutableDataRef> pdfPageData;
     drawPagesToPDFImpl(frameID, printInfo, 0, pageCount, pdfPageData);
-    reply(IPC::SharedBufferCopy(SharedBuffer::create(pdfPageData.get())));
+    reply(SharedBuffer::create(pdfPageData.get()));
 
     endPrinting();
 }
