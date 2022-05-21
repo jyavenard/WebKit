@@ -36,6 +36,7 @@
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 #include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/WorkQueue.h>
 
 namespace WebCore {
 
@@ -44,10 +45,11 @@ class ResourceError;
 class ResourceRequest;
 class ResourceResponse;
 
-class PlatformMediaResourceClient : public RefCounted<PlatformMediaResourceClient> {
+class PlatformMediaResourceClient : public ThreadSafeRefCounted<PlatformMediaResourceClient> {
 public:
     virtual ~PlatformMediaResourceClient() = default;
 
+    // Those methods must be called on PlatformMediaResourceLoader::targetQueue()
     virtual void responseReceived(PlatformMediaResource&, const ResourceResponse&, CompletionHandler<void(ShouldContinuePolicyCheck)>&& completionHandler) { completionHandler(ShouldContinuePolicyCheck::Yes); }
     virtual void redirectReceived(PlatformMediaResource&, ResourceRequest&& request, const ResourceResponse&, CompletionHandler<void(ResourceRequest&&)>&& completionHandler) { completionHandler(WTFMove(request)); }
     virtual bool shouldCacheResponse(PlatformMediaResource&, const ResourceResponse&) { return true; }
@@ -69,8 +71,12 @@ public:
 
     virtual ~PlatformMediaResourceLoader() = default;
 
-    virtual RefPtr<PlatformMediaResource> requestResource(ResourceRequest&&, LoadOptions) = 0;
     virtual void sendH2Ping(const URL&, CompletionHandler<void(Expected<Seconds, ResourceError>&&)>&&) = 0;
+
+    // Can be called on any threads. Return the WorkQueue on which the PlaftormMediaResource and PlatformMediaResourceClient must be be called on.
+    virtual Ref<WTF::WorkQueue> targetQueue() { return WTF::WorkQueue::main(); }
+    // requestResource will be called on the main thread, the PlatformMediaResource object is to be used on targetQueue().
+    virtual RefPtr<PlatformMediaResource> requestResource(ResourceRequest&&, LoadOptions) = 0;
 
 protected:
     PlatformMediaResourceLoader() = default;

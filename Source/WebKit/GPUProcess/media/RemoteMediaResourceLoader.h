@@ -41,9 +41,20 @@ public:
     explicit RemoteMediaResourceLoader(RemoteMediaPlayerProxy&);
     ~RemoteMediaResourceLoader();
 
+    static Ref<WTF::WorkQueue> defaultQueue()
+    {
+        static std::once_flag onceKey;
+        static LazyNeverDestroyed<Ref<WTF::WorkQueue>> messageQueue;
+        std::call_once(onceKey, [] {
+            messageQueue.construct(WorkQueue::create("PlatformMediaResourceLoader", WTF::WorkQueue::QOS::Background));
+        });
+        return messageQueue.get();
+    }
+
 private:
     RefPtr<WebCore::PlatformMediaResource> requestResource(WebCore::ResourceRequest&&, LoadOptions) final;
     void sendH2Ping(const URL&, CompletionHandler<void(Expected<WTF::Seconds, WebCore::ResourceError>&&)>&&) final;
+    Ref<WTF::WorkQueue> targetQueue() final { return defaultQueue(); }
 
     WeakPtr<RemoteMediaPlayerProxy> m_remoteMediaPlayerProxy;
 };

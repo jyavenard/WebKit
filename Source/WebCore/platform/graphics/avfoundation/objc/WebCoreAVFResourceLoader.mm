@@ -40,6 +40,7 @@
 #import <AVFoundation/AVAssetResourceLoader.h>
 #import <objc/runtime.h>
 #import <wtf/SoftLinking.h>
+#import <wtf/WorkQueue.h>
 #import <wtf/text/CString.h>
 
 @interface AVAssetResourceLoadingContentInformationRequest (WebKitExtensions)
@@ -162,6 +163,7 @@ private:
     void loadFinished(PlatformMediaResource&, const NetworkLoadMetrics&) final { loadFinished(); }
 
     WebCoreAVFResourceLoader& m_parent;
+    const WTF::WorkQueue& m_targetQueue;
     RefPtr<PlatformMediaResource> m_resource;
     SharedBufferBuilder m_buffer;
 };
@@ -179,38 +181,50 @@ RefPtr<PlatformResourceMediaLoader> PlatformResourceMediaLoader::create(WebCoreA
 
 PlatformResourceMediaLoader::PlatformResourceMediaLoader(WebCoreAVFResourceLoader& parent, Ref<PlatformMediaResource>&& resource)
     : m_parent(parent)
+    , m_targetQueue(parent.m_targetQueue)
     , m_resource(WTFMove(resource))
 {
 }
 
 void PlatformResourceMediaLoader::stop()
 {
+    assertIsCurrent(m_targetQueue);
+
     if (!m_resource)
         return;
 
-    auto resource = WTFMove(m_resource);
-    resource->stop();
-    resource->setClient(nullptr);
+    callOnMainThread([resource = WTFMove(m_resource)] () mutable {
+        resource->stop();
+        resource->setClient(nullptr);
+    });
 }
 
 void PlatformResourceMediaLoader::responseReceived(PlatformMediaResource&, const ResourceResponse& response, CompletionHandler<void(ShouldContinuePolicyCheck)>&& completionHandler)
 {
+    assertIsCurrent(m_targetQueue);
+
     m_parent.responseReceived(response);
     completionHandler(ShouldContinuePolicyCheck::Yes);
 }
 
 void PlatformResourceMediaLoader::loadFailed(const ResourceError& error)
 {
+    assertIsCurrent(m_targetQueue);
+
     m_parent.loadFailed(error);
 }
 
 void PlatformResourceMediaLoader::loadFinished()
 {
+    assertIsCurrent(m_targetQueue);
+
     m_parent.loadFinished();
 }
 
 void PlatformResourceMediaLoader::dataReceived(PlatformMediaResource&, const SharedBuffer& buffer)
 {
+    assertIsCurrent(m_targetQueue);
+
     m_buffer.append(buffer);
     m_parent.newDataStoredInSharedBuffer(*m_buffer.get());
 }
@@ -236,7 +250,7 @@ DataURLResourceMediaLoader::DataURLResourceMediaLoader(WebCoreAVFResourceLoader&
         m_buffer = SharedBuffer::create(WTFMove(result->data));
     }
 
-    callOnMainThread([this, weakThis = WeakPtr { *this }] {
+    m_parent.m_targetQueue->dispatch([this, weakThis = WeakPtr { *this }] {
         if (!weakThis)
             return;
 
@@ -256,26 +270,27 @@ DataURLResourceMediaLoader::DataURLResourceMediaLoader(WebCoreAVFResourceLoader&
     });
 }
 
-Ref<WebCoreAVFResourceLoader> WebCoreAVFResourceLoader::create(MediaPlayerPrivateAVFoundationObjC* parent, AVAssetResourceLoadingRequest *avRequest)
+Ref<WebCoreAVFResourceLoader> WebCoreAVFResourceLoader::create(MediaPlayerPrivateAVFoundationObjC* parent, AVAssetResourceLoadingRequest *avRequest, WTF::WorkQueue& targetQueue)
 {
     ASSERT(avRequest);
     ASSERT(parent);
-    return adoptRef(*new WebCoreAVFResourceLoader(parent, avRequest));
+    return adoptRef(*new WebCoreAVFResourceLoader(parent, avRequest, targetQueue));
 }
 
-WebCoreAVFResourceLoader::WebCoreAVFResourceLoader(MediaPlayerPrivateAVFoundationObjC* parent, AVAssetResourceLoadingRequest *avRequest)
+WebCoreAVFResourceLoader::WebCoreAVFResourceLoader(MediaPlayerPrivateAVFoundationObjC* parent, AVAssetResourceLoadingRequest *avRequest, WTF::WorkQueue& targetQueue)
     : m_parent(parent)
     , m_avRequest(avRequest)
+    , m_targetQueue(targetQueue)
 {
 }
 
 WebCoreAVFResourceLoader::~WebCoreAVFResourceLoader()
 {
-    stopLoading();
 }
 
 void WebCoreAVFResourceLoader::startLoading()
 {
+    // Called from the main thread, before any loaders are created.
     if (m_dataURLMediaLoader || m_resourceMediaLoader || m_platformMediaLoader || !m_parent)
         return;
 
@@ -313,6 +328,8 @@ void WebCoreAVFResourceLoader::startLoading()
 
 void WebCoreAVFResourceLoader::stopLoading()
 {
+    assertIsCurrent(m_targetQueue);
+
     m_dataURLMediaLoader = nullptr;
     m_resourceMediaLoader = nullptr;
 
@@ -320,24 +337,30 @@ void WebCoreAVFResourceLoader::stopLoading()
         m_platformMediaLoader->stop();
         m_platformMediaLoader = nullptr;
     }
-    if (m_parent && m_avRequest)
-        m_parent->didStopLoadingRequest(m_avRequest.get());
+    if (m_avRequest) {
+        callOnMainThread([parent = m_parent, invalidated = m_invalidated, avRequest = WTFMove(m_avRequest)] () mutable {
+            if (!invalidated && parent)
+                parent->didStopLoadingRequest(avRequest.get());
+        });
+    }
 }
 
 void WebCoreAVFResourceLoader::invalidate()
 {
-    if (!m_parent)
+    assertIsCurrent(m_targetQueue);
+
+    if (m_invalidated)
         return;
-
+    m_invalidated = true;
     m_parent = nullptr;
+    stopLoading();
 
-    callOnMainThread([protectedThis = Ref { *this }] () mutable {
-        protectedThis->stopLoading();
-    });
 }
 
 void WebCoreAVFResourceLoader::responseReceived(const ResourceResponse& response)
 {
+    assertIsCurrent(m_targetQueue);
+
     int status = response.httpStatusCode();
     if (status && (status < 200 || status > 299)) {
         [m_avRequest finishLoadingWithError:0];
@@ -372,6 +395,8 @@ void WebCoreAVFResourceLoader::responseReceived(const ResourceResponse& response
 
 void WebCoreAVFResourceLoader::loadFailed(const ResourceError& error)
 {
+    assertIsCurrent(m_targetQueue);
+
     // <rdar://problem/13987417> Set the contentType of the contentInformationRequest to an empty
     // string to trigger AVAsset's playable value to complete loading.
     if ([m_avRequest contentInformationRequest] && ![[m_avRequest contentInformationRequest] contentType])
@@ -383,12 +408,16 @@ void WebCoreAVFResourceLoader::loadFailed(const ResourceError& error)
 
 void WebCoreAVFResourceLoader::loadFinished()
 {
+    assertIsCurrent(m_targetQueue);
+
     [m_avRequest finishLoading];
     stopLoading();
 }
 
 void WebCoreAVFResourceLoader::newDataStoredInSharedBuffer(const FragmentedSharedBuffer& data)
 {
+    assertIsCurrent(m_targetQueue);
+
     AVAssetResourceLoadingDataRequest* dataRequest = [m_avRequest dataRequest];
     if (!dataRequest)
         return;

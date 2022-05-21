@@ -72,12 +72,12 @@ bool RemoteMediaResource::didPassAccessControlCheck() const
 
 void RemoteMediaResource::responseReceived(const ResourceResponse& response, bool didPassAccessControlCheck, CompletionHandler<void(ShouldContinuePolicyCheck)>&& completionHandler)
 {
-    if (!m_client)
+    auto client = this->client();
+    if (!client)
         return;
 
     m_didPassAccessControlCheck = didPassAccessControlCheck;
-    m_client->responseReceived(*this, response, [protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](auto shouldContinue) mutable {
-        ASSERT(isMainRunLoop());
+    client->responseReceived(*this, response, [protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](auto shouldContinue) mutable {
         if (shouldContinue == ShouldContinuePolicyCheck::No)
             protectedThis->stop();
 

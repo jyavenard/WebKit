@@ -30,8 +30,11 @@
 
 #include "Connection.h"
 #include "RemoteMediaResource.h"
+#include "RemoteMediaResourceManagerMessages.h"
 #include "RemoteMediaResourceIdentifier.h"
+#include "RemoteMediaResourceLoader.h"
 #include "WebCoreArgumentCoders.h"
+#include <WebCore/PlatformMediaResourceLoader.h>
 #include <WebCore/ResourceRequest.h>
 
 namespace WebKit {
@@ -42,8 +45,25 @@ RemoteMediaResourceManager::RemoteMediaResourceManager()
 {
 }
 
-RemoteMediaResourceManager::~RemoteMediaResourceManager()
+RemoteMediaResourceManager::~RemoteMediaResourceManager() = default;
+
+void RemoteMediaResourceManager::stopListeningForIPC()
 {
+    initializeConnection(nullptr);
+}
+
+void RemoteMediaResourceManager::initializeConnection(IPC::Connection* connection)
+{
+    if (m_connection == connection)
+        return;
+
+    if (m_connection)
+        m_connection->removeWorkQueueMessageReceiver(Messages::RemoteMediaResourceManager::messageReceiverName());
+
+    m_connection = connection;
+
+    if (m_connection)
+        m_connection->addWorkQueueMessageReceiver(Messages::RemoteMediaResourceManager::messageReceiverName(), RemoteMediaResourceLoader::defaultQueue(), *this);
 }
 
 void RemoteMediaResourceManager::addMediaResource(RemoteMediaResourceIdentifier remoteMediaResourceIdentifier, RemoteMediaResource& remoteMediaResource)

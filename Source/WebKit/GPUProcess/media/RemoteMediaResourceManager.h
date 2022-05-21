@@ -27,6 +27,7 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "Connection.h"
 #include "DataReference.h"
 #include "MessageReceiver.h"
 #include "RemoteMediaResourceIdentifier.h"
@@ -50,16 +51,19 @@ namespace WebKit {
 class RemoteMediaResource;
 
 class RemoteMediaResourceManager
-    : public IPC::MessageReceiver {
+    : public IPC::Connection::WorkQueueMessageReceiver {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     RemoteMediaResourceManager();
     ~RemoteMediaResourceManager();
 
+    void initializeConnection(IPC::Connection*);
+    void stopListeningForIPC();
+
     void addMediaResource(RemoteMediaResourceIdentifier, RemoteMediaResource&);
     void removeMediaResource(RemoteMediaResourceIdentifier);
 
-    // IPC::MessageReceiver
+    // IPC::Connection::WorkQueueMessageReceiver.
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
 
 private:
@@ -72,6 +76,7 @@ private:
     void loadFinished(RemoteMediaResourceIdentifier, const WebCore::NetworkLoadMetrics&);
 
     HashMap<RemoteMediaResourceIdentifier, RemoteMediaResource*> m_remoteMediaResources;
+    RefPtr<IPC::Connection> m_connection;
 };
 
 } // namespace WebKit
