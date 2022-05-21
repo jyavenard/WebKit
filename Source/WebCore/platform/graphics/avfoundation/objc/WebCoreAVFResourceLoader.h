@@ -71,7 +71,7 @@ private:
     RetainPtr<AVAssetResourceLoadingRequest> m_avRequest;
     std::unique_ptr<DataURLResourceMediaLoader> m_dataURLMediaLoader;
     std::unique_ptr<CachedResourceMediaLoader> m_resourceMediaLoader;
-    WeakPtr<PlatformResourceMediaLoader> m_platformMediaLoader;
+    RefPtr<PlatformResourceMediaLoader> m_platformMediaLoader;
     size_t m_responseOffset { 0 };
 };
 

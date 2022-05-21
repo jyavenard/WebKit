@@ -137,11 +137,11 @@ void CachedResourceMediaLoader::dataReceived(CachedResource& resource, const Sha
         m_parent.newDataStoredInSharedBuffer(*data);
 }
 
-class PlatformResourceMediaLoader final : public PlatformMediaResourceClient, public CanMakeWeakPtr<PlatformResourceMediaLoader> {
+class PlatformResourceMediaLoader final : public PlatformMediaResourceClient {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static WeakPtr<PlatformResourceMediaLoader> create(WebCoreAVFResourceLoader&, PlatformMediaResourceLoader&, ResourceRequest&&);
-    ~PlatformResourceMediaLoader() { stop(); }
+    static RefPtr<PlatformResourceMediaLoader> create(WebCoreAVFResourceLoader&, PlatformMediaResourceLoader&, ResourceRequest&&);
+    ~PlatformResourceMediaLoader() = default;
 
     void stop();
 
@@ -166,17 +166,15 @@ private:
     SharedBufferBuilder m_buffer;
 };
 
-WeakPtr<PlatformResourceMediaLoader> PlatformResourceMediaLoader::create(WebCoreAVFResourceLoader& parent, PlatformMediaResourceLoader& loader, ResourceRequest&& request)
+RefPtr<PlatformResourceMediaLoader> PlatformResourceMediaLoader::create(WebCoreAVFResourceLoader& parent, PlatformMediaResourceLoader& loader, ResourceRequest&& request)
 {
     auto resource = loader.requestResource(WTFMove(request), PlatformMediaResourceLoader::LoadOption::DisallowCaching);
     if (!resource)
         return nullptr;
     auto* resourcePointer = resource.get();
     auto client = adoptRef(*new PlatformResourceMediaLoader { parent, resource.releaseNonNull() });
-    WeakPtr result = client;
-
-    resourcePointer->setClient(WTFMove(client));
-    return result;
+    resourcePointer->setClient(client.copyRef());
+    return client;
 }
 
 PlatformResourceMediaLoader::PlatformResourceMediaLoader(WebCoreAVFResourceLoader& parent, Ref<PlatformMediaResource>&& resource)
