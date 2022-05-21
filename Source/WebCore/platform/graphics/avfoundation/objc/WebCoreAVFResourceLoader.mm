@@ -39,6 +39,7 @@
 #import "UTIUtilities.h"
 #import <AVFoundation/AVAssetResourceLoader.h>
 #import <objc/runtime.h>
+#import <wtf/Scope.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/WorkQueue.h>
 #import <wtf/text/CString.h>
@@ -119,7 +120,7 @@ void CachedResourceMediaLoader::responseReceived(CachedResource& resource, const
     ASSERT_UNUSED(resource, &resource == m_resource);
     CompletionHandlerCallingScope completionHandlerCaller(WTFMove(completionHandler));
 
-    m_parent.responseReceived(response);
+    m_parent.responseReceived(response.mimeType(), response.httpStatusCode(), response.contentRange(), response.expectedContentLength());
 }
 
 void CachedResourceMediaLoader::notifyFinished(CachedResource& resource, const NetworkLoadMetrics&)
@@ -203,7 +204,7 @@ void PlatformResourceMediaLoader::responseReceived(PlatformMediaResource&, const
 {
     assertIsCurrent(m_targetQueue);
 
-    m_parent.responseReceived(response);
+    m_parent.responseReceived(response.mimeType(), response.httpStatusCode(), response.contentRange(), response.expectedContentLength());
     completionHandler(ShouldContinuePolicyCheck::Yes);
 }
 
@@ -236,36 +237,38 @@ public:
 
 private:
     WebCoreAVFResourceLoader& m_parent;
-    ResourceResponse m_response;
-    RefPtr<SharedBuffer> m_buffer;
 };
 
 DataURLResourceMediaLoader::DataURLResourceMediaLoader(WebCoreAVFResourceLoader& parent, ResourceRequest&& request)
     : m_parent(parent)
 {
     RELEASE_ASSERT(request.url().protocolIsData());
+    ASSERT(isMainThread());
 
     if (auto result = DataURLDecoder::decode(request.url(), DataURLDecoder::Mode::ForgivingBase64)) {
-        m_response = ResourceResponse::dataURLResponse(request.url(), *result);
-        m_buffer = SharedBuffer::create(WTFMove(result->data));
-    }
+        // data URLs can end up being unreasonably big so we want to avoid having to call isolatedCopy() here when passing the URL String to the loading thread.
+        auto response = ResourceResponse::dataURLResponse(request.url(), *result);
+        auto buffer = SharedBuffer::create(WTFMove(result->data));
+        m_parent.m_targetQueue->dispatch([this, parent = Ref { m_parent }, buffer = WTFMove(buffer), mimeType = response.mimeType().isolatedCopy(), status =  response.httpStatusCode(), contentRange = response.contentRange()] {
 
-    m_parent.m_targetQueue->dispatch([this, parent = Ref { m_parent }] {
-        if (m_parent.m_dataURLMediaLoader.get() != this)
-            return;
+            if (m_parent.m_dataURLMediaLoader.get() != this)
+                return;
 
-        if (!m_buffer || m_response.isNull()) {
+            if (m_parent.responseReceived(mimeType, status, contentRange, buffer->size()))
+                return;
+
+            if (m_parent.newDataStoredInSharedBuffer(buffer))
+                return;
+
+            m_parent.loadFinished();
+        });
+    } else {
+        m_parent.m_targetQueue->dispatch([this, parent = Ref { m_parent }] {
+            if (m_parent.m_dataURLMediaLoader.get() != this)
+                return;
             m_parent.loadFailed(ResourceError(ResourceError::Type::General));
-            return;
-        }
-        if (m_parent.responseReceived(m_response))
-            return;
-
-        if (m_parent.newDataStoredInSharedBuffer(*m_buffer))
-            return;
-
-        m_parent.loadFinished();
-    });
+        });
+    }
 }
 
 Ref<WebCoreAVFResourceLoader> WebCoreAVFResourceLoader::create(MediaPlayerPrivateAVFoundationObjC* parent, AVAssetResourceLoadingRequest *avRequest, WTF::WorkQueue& targetQueue)
@@ -334,7 +337,7 @@ void WebCoreAVFResourceLoader::stopLoading()
 
     if (m_platformMediaLoader) {
         m_platformMediaLoader->stop();
-        m_platformMediaLoader = nullptr;
+        callOnMainThread([loader = WTFMove(m_platformMediaLoader)] { });
     }
     if (m_avRequest) {
         callOnMainThread([parent = m_parent, invalidated = m_invalidated, avRequest = WTFMove(m_avRequest)] () mutable {
@@ -356,26 +359,24 @@ void WebCoreAVFResourceLoader::invalidate()
 
 }
 
-bool WebCoreAVFResourceLoader::responseReceived(const ResourceResponse& response)
+bool WebCoreAVFResourceLoader::responseReceived(const String& mimeType, int status, const ParsedContentRange& contentRange, size_t expectedContentLength)
 {
     assertIsCurrent(m_targetQueue);
 
-    int status = response.httpStatusCode();
     if (status && (status < 200 || status > 299)) {
         [m_avRequest finishLoadingWithError:0];
         return true;
     }
 
-    auto& contentRange = response.contentRange();
     if (contentRange.isValid())
         m_responseOffset = static_cast<NSUInteger>(contentRange.firstBytePosition());
 
     if (AVAssetResourceLoadingContentInformationRequest* contentInfo = [m_avRequest contentInformationRequest]) {
-        String uti = UTIFromMIMEType(response.mimeType());
+        String uti = UTIFromMIMEType(mimeType);
 
         [contentInfo setContentType:uti];
 
-        [contentInfo setContentLength:contentRange.isValid() ? contentRange.instanceLength() : response.expectedContentLength()];
+        [contentInfo setContentLength:contentRange.isValid() ? contentRange.instanceLength() : expectedContentLength];
         [contentInfo setByteRangeAccessSupported:YES];
 
         // Do not set "EntireLengthAvailableOnDemand" to YES when the loader is DataURLResourceMediaLoader.

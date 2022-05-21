@@ -43,11 +43,12 @@ namespace WebCore {
 
 class CachedResourceMediaLoader;
 class DataURLResourceMediaLoader;
+class FragmentedSharedBuffer;
 class MediaPlayerPrivateAVFoundationObjC;
+class ParsedContentRange;
 class PlatformResourceMediaLoader;
 class ResourceError;
 class ResourceResponse;
-class FragmentedSharedBuffer;
 
 class WebCoreAVFResourceLoader : public ThreadSafeRefCounted<WebCoreAVFResourceLoader> {
     WTF_MAKE_NONCOPYABLE(WebCoreAVFResourceLoader); WTF_MAKE_FAST_ALLOCATED;
@@ -67,7 +68,7 @@ private:
     friend class PlatformResourceMediaLoader;
 
     // Return true if stopLoading() got called, indicating that no further processing should occur.
-    bool responseReceived(const ResourceResponse&);
+    bool responseReceived(const String&, int, const ParsedContentRange&, size_t);
     bool newDataStoredInSharedBuffer(const FragmentedSharedBuffer&);
 
     void loadFailed(const ResourceError&);
