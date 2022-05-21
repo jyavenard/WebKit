@@ -128,11 +128,11 @@ WEBCORE_EXPORT @interface WebCoreNSURLSession : NSObject {
 @interface WebCoreNSURLSessionDataTask : NSObject {
     WeakObjCPtr<WebCoreNSURLSession> _session; // Accesssed from operation queue, main and loader thread. Must be accessed through Obj-C property.
     RefPtr<WTF::WorkQueue> _targetQueue;
-    RefPtr<WebCore::PlatformMediaResource> _resource;
+    RefPtr<WebCore::PlatformMediaResource> _resource; // Accesssed from main and loader thread. Must be accessed through Obj-C property.
     RetainPtr<NSURLResponse> _response; // Set on operation queue.
     NSUInteger _taskIdentifier;
     RetainPtr<NSURLRequest> _originalRequest; // Set on construction, never modified.
-    RetainPtr<NSURLRequest> _currentRequest;  // Set on construction, never modified.
+    RetainPtr<NSURLRequest> _currentRequest; // Set on construction, never modified.
     int64_t _countOfBytesReceived;
     int64_t _countOfBytesSent;
     int64_t _countOfBytesExpectedToSend;
