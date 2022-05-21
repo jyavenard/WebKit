@@ -85,11 +85,15 @@ protected:
 class PlatformMediaResource : public ThreadSafeRefCounted<PlatformMediaResource, WTF::DestructionThread::Main> {
     WTF_MAKE_NONCOPYABLE(PlatformMediaResource); WTF_MAKE_FAST_ALLOCATED;
 public:
+    // Called on the main thread.
     PlatformMediaResource() = default;
     virtual ~PlatformMediaResource() = default;
-    virtual void stop() { }
+    virtual void shutdown() { }
+
+    // Can be called on any threads, must be made thread-safe.
     virtual bool didPassAccessControlCheck() const { return false; }
 
+    // Can be called on any thread.
     void setClient(RefPtr<PlatformMediaResourceClient>&& client)
     {
         Locker locker { m_lock };

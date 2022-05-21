@@ -152,18 +152,25 @@ MediaResource::MediaResource(MediaResourceLoader& loader, CachedResourceHandle<C
     : m_loader(loader)
     , m_resource(resource)
 {
+    ASSERT(isMainThread());
+
     ASSERT(resource);
     resource->addClient(*this);
 }
 
 MediaResource::~MediaResource()
 {
-    stop();
+    ASSERT(isMainThread());
+
     m_loader->removeResource(*this);
 }
 
-void MediaResource::stop()
+void MediaResource::shutdown()
 {
+    ASSERT(isMainThread());
+
+    setClient(nullptr);
+
     if (!m_resource)
         return;
 
@@ -183,20 +190,20 @@ void MediaResource::responseReceived(CachedResource& resource, const ResourceRes
     if (m_resource->resourceError().isAccessControl()) {
         static NeverDestroyed<const String> consoleMessage("Cross-origin media resource load denied by Cross-Origin Resource Sharing policy."_s);
         m_loader->document()->addConsoleMessage(MessageSource::Security, MessageLevel::Error, consoleMessage.get());
-        m_didPassAccessControlCheck = false;
+        m_didPassAccessControlCheck.store(false);
         if (auto client = this->client())
             client->accessControlCheckFailed(*this, ResourceError(errorDomainWebKitInternal, 0, response.url(), consoleMessage.get()));
-        stop();
+        ensureShutdown();
         return;
     }
 
-    m_didPassAccessControlCheck = m_resource->options().mode == FetchOptions::Mode::Cors;
+    m_didPassAccessControlCheck.store(m_resource->options().mode == FetchOptions::Mode::Cors);
     if (auto client = this->client()) {
         client->responseReceived(*this, response, [this, protectedThis = Ref { *this }, completionHandler = completionHandlerCaller.release()] (auto shouldContinue) mutable {
             if (completionHandler)
                 completionHandler();
             if (shouldContinue == ShouldContinuePolicyCheck::No)
-                stop();
+                ensureShutdown();
         });
     }
 
@@ -253,7 +260,14 @@ void MediaResource::notifyFinished(CachedResource& resource, const NetworkLoadMe
         else
             client->loadFinished(*this, metrics);
     }
-    stop();
+    ensureShutdown();
+}
+
+void MediaResource::ensureShutdown()
+{
+    ensureOnMainThread([protectedThis = Ref { *this }] {
+        protectedThis->shutdown();
+    });
 }
 
 } // namespace WebCore

@@ -757,10 +757,8 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
     auto resource = self.resource;
     self.resource = nullptr;
     callOnMainThread([resource = WTFMove(resource), completionHandler = WTFMove(completionHandler), strongSelf = retainPtr(self)] () mutable {
-        if (resource) {
-            resource->stop();
-            resource->setClient(nullptr);
-        }
+        if (resource)
+            resource->shutdown();
         strongSelf->_targetQueue->dispatch([completionHandler = WTFMove(completionHandler), strongSelf = WTFMove(strongSelf)] () mutable {
             if (RetainPtr<WebCoreNSURLSession> strongSession = [strongSelf session])
                 [strongSession rangeResponseGenerator].removeTask(strongSelf.get());

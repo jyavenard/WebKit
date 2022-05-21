@@ -34,6 +34,7 @@
 #include "SharedMemory.h"
 #include <WebCore/PolicyChecker.h>
 #include <wtf/HashMap.h>
+#include <wtf/Lock.h>
 #include <wtf/WeakPtr.h>
 
 namespace IPC {
@@ -75,7 +76,11 @@ private:
     void loadFailed(RemoteMediaResourceIdentifier, const WebCore::ResourceError&);
     void loadFinished(RemoteMediaResourceIdentifier, const WebCore::NetworkLoadMetrics&);
 
-    HashMap<RemoteMediaResourceIdentifier, RemoteMediaResource*> m_remoteMediaResources;
+    RefPtr<RemoteMediaResource> resourceForIdAndReady(RemoteMediaResourceIdentifier);
+
+    Lock m_lock;
+    HashMap<RemoteMediaResourceIdentifier, RefPtr<RemoteMediaResource>> m_remoteMediaResources WTF_GUARDED_BY_LOCK(m_lock);
+
     RefPtr<IPC::Connection> m_connection;
 };
 

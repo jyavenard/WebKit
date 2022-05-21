@@ -45,15 +45,26 @@ RemoteMediaResourceManager::RemoteMediaResourceManager()
 {
 }
 
-RemoteMediaResourceManager::~RemoteMediaResourceManager() = default;
+RemoteMediaResourceManager::~RemoteMediaResourceManager()
+{
+    ASSERT(isMainRunLoop());
+    Locker locker { m_lock };
+    // Shutdown any stale RemoteMediaResources. We must complete this step in a follow-up task to prevent re-entry in RemoteMediaResourceManager.
+    callOnMainRunLoop([resources = WTFMove(m_remoteMediaResources)] {
+        for (auto&& resource : resources)
+            resource.value->shutdown();
+    });
+}
 
 void RemoteMediaResourceManager::stopListeningForIPC()
 {
+    ASSERT(isMainRunLoop());
     initializeConnection(nullptr);
 }
 
 void RemoteMediaResourceManager::initializeConnection(IPC::Connection* connection)
 {
+    ASSERT(isMainRunLoop());
     if (m_connection == connection)
         return;
 
@@ -68,84 +79,93 @@ void RemoteMediaResourceManager::initializeConnection(IPC::Connection* connectio
 
 void RemoteMediaResourceManager::addMediaResource(RemoteMediaResourceIdentifier remoteMediaResourceIdentifier, RemoteMediaResource& remoteMediaResource)
 {
+    ASSERT(isMainRunLoop());
+
+    Locker locker { m_lock };
     ASSERT(!m_remoteMediaResources.contains(remoteMediaResourceIdentifier));
     m_remoteMediaResources.add(remoteMediaResourceIdentifier, &remoteMediaResource);
 }
 
 void RemoteMediaResourceManager::removeMediaResource(RemoteMediaResourceIdentifier remoteMediaResourceIdentifier)
 {
+    ASSERT(isMainRunLoop());
+
+    Locker locker { m_lock };
     ASSERT(m_remoteMediaResources.contains(remoteMediaResourceIdentifier));
     m_remoteMediaResources.remove(remoteMediaResourceIdentifier);
 }
 
+RefPtr<RemoteMediaResource> RemoteMediaResourceManager::resourceForIdAndReady(RemoteMediaResourceIdentifier identifier)
+{
+    Locker locker { m_lock };
+    auto resource = m_remoteMediaResources.get(identifier);
+    if (!resource || !resource->ready())
+        return nullptr;
+    return resource;
+}
+
 void RemoteMediaResourceManager::responseReceived(RemoteMediaResourceIdentifier identifier, const ResourceResponse& response, bool didPassAccessControlCheck, CompletionHandler<void(ShouldContinuePolicyCheck)>&& completionHandler)
 {
-    auto* resource = m_remoteMediaResources.get(identifier);
-    if (!resource || !resource->ready()) {
-        completionHandler(ShouldContinuePolicyCheck::No);
-        return;
-    }
+    assertIsCurrent(RemoteMediaResourceLoader::defaultQueue());
 
-    resource->responseReceived(response, didPassAccessControlCheck, WTFMove(completionHandler));
+    if (auto resource = resourceForIdAndReady(identifier))
+        resource->responseReceived(response, didPassAccessControlCheck, WTFMove(completionHandler));
+    else
+        completionHandler(ShouldContinuePolicyCheck::No);
 }
 
 void RemoteMediaResourceManager::redirectReceived(RemoteMediaResourceIdentifier identifier, ResourceRequest&& request, const ResourceResponse& response, CompletionHandler<void(WebCore::ResourceRequest&&)>&& completionHandler)
 {
-    auto* resource = m_remoteMediaResources.get(identifier);
-    if (!resource || !resource->ready()) {
-        completionHandler({ });
-        return;
-    }
+    assertIsCurrent(RemoteMediaResourceLoader::defaultQueue());
 
-    resource->redirectReceived(WTFMove(request), response, WTFMove(completionHandler));
+    if (auto resource = resourceForIdAndReady(identifier))
+        resource->redirectReceived(WTFMove(request), response, WTFMove(completionHandler));
+    else
+        completionHandler({ });
 }
 
 void RemoteMediaResourceManager::dataSent(RemoteMediaResourceIdentifier identifier, uint64_t bytesSent, uint64_t totalBytesToBeSent)
 {
-    auto* resource = m_remoteMediaResources.get(identifier);
-    if (!resource || !resource->ready())
-        return;
+    assertIsCurrent(RemoteMediaResourceLoader::defaultQueue());
 
-    resource->dataSent(bytesSent, totalBytesToBeSent);
+    if (auto resource = resourceForIdAndReady(identifier))
+        resource->dataSent(bytesSent, totalBytesToBeSent);
 }
 
 void RemoteMediaResourceManager::dataReceived(RemoteMediaResourceIdentifier identifier, const SharedMemory::IPCHandle& bufferHandle)
 {
-    auto* resource = m_remoteMediaResources.get(identifier);
-    if (!resource || !resource->ready())
-        return;
+    assertIsCurrent(RemoteMediaResourceLoader::defaultQueue());
 
-    auto sharedMemory = SharedMemory::map(bufferHandle.handle, SharedMemory::Protection::ReadOnly);
-    if (!sharedMemory)
-        return;
-    resource->dataReceived(sharedMemory->createSharedBuffer(bufferHandle.dataSize));
+    if (auto resource = resourceForIdAndReady(identifier)) {
+        auto sharedMemory = SharedMemory::map(bufferHandle.handle, SharedMemory::Protection::ReadOnly);
+        if (!sharedMemory)
+            return;
+        resource->dataReceived(sharedMemory->createSharedBuffer(bufferHandle.dataSize));
+    }
 }
 
 void RemoteMediaResourceManager::accessControlCheckFailed(RemoteMediaResourceIdentifier identifier, const ResourceError& error)
 {
-    auto* resource = m_remoteMediaResources.get(identifier);
-    if (!resource || !resource->ready())
-        return;
+    assertIsCurrent(RemoteMediaResourceLoader::defaultQueue());
 
-    resource->accessControlCheckFailed(error);
+    if (auto resource = resourceForIdAndReady(identifier))
+        resource->accessControlCheckFailed(error);
 }
 
 void RemoteMediaResourceManager::loadFailed(RemoteMediaResourceIdentifier identifier, const ResourceError& error)
 {
-    auto* resource = m_remoteMediaResources.get(identifier);
-    if (!resource || !resource->ready())
-        return;
+    assertIsCurrent(RemoteMediaResourceLoader::defaultQueue());
 
-    resource->loadFailed(error);
+    if (auto resource = resourceForIdAndReady(identifier))
+        resource->loadFailed(error);
 }
 
 void RemoteMediaResourceManager::loadFinished(RemoteMediaResourceIdentifier identifier, const NetworkLoadMetrics& metrics)
 {
-    auto* resource = m_remoteMediaResources.get(identifier);
-    if (!resource || !resource->ready())
-        return;
+    assertIsCurrent(RemoteMediaResourceLoader::defaultQueue());
 
-    resource->loadFinished(metrics);
+    if (auto resource = resourceForIdAndReady(identifier))
+        resource->loadFinished(metrics);
 }
 
 } // namespace WebKit

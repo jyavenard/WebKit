@@ -195,8 +195,7 @@ void PlatformResourceMediaLoader::stop()
         return;
 
     callOnMainThread([resource = WTFMove(m_resource)] () mutable {
-        resource->stop();
-        resource->setClient(nullptr);
+        resource->shutdown();
     });
 }
 

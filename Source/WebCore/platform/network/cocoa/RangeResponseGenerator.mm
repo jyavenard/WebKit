@@ -57,6 +57,19 @@ struct RangeResponseGenerator::Data {
         enum class ResponseState : uint8_t { NotSynthesizedYet, WaitingForSession, SessionCalledCompletionHandler } responseState { ResponseState::NotSynthesizedYet };
     };
 
+    virtual ~Data()
+    {
+        shutdownResource();
+    }
+
+    void shutdownResource()
+    {
+        if (resource) {
+            callOnMainThread([resource = WTFMove(resource)] () mutable {
+                resource->shutdown();
+            });
+        }
+    }
     HashMap<RetainPtr<WebCoreNSURLSessionDataTask>, std::unique_ptr<TaskData>> taskData;
     SharedBufferBuilder buffer;
     ResourceResponse originalResponse;
@@ -262,7 +275,7 @@ private:
         if (!data)
             return;
         data->successfullyFinishedLoading = Data::SuccessfullyFinishedLoading::Yes;
-        data->resource = nullptr; // This line can delete this MediaResourceClient.
+        data->shutdownResource();
         generator->giveResponseToTasksWithFinishedRanges(*data);
     }
 
