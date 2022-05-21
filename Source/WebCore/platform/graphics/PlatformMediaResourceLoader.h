@@ -31,6 +31,7 @@
 #include "SharedBuffer.h"
 #include <wtf/CompletionHandler.h>
 #include <wtf/Expected.h>
+#include <wtf/Lock.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
@@ -83,11 +84,20 @@ public:
     virtual void stop() { }
     virtual bool didPassAccessControlCheck() const { return false; }
 
-    void setClient(RefPtr<PlatformMediaResourceClient>&& client) { m_client = WTFMove(client); }
-    PlatformMediaResourceClient* client() { return m_client.get(); }
+    void setClient(RefPtr<PlatformMediaResourceClient>&& client)
+    {
+        Locker locker { m_lock };
+        m_client = WTFMove(client);
+    }
+    RefPtr<PlatformMediaResourceClient> client() const
+    {
+        Locker locker { m_lock };
+        return m_client;
+    }
 
-protected:
-    RefPtr<PlatformMediaResourceClient> m_client;
+private:
+    RefPtr<PlatformMediaResourceClient> m_client WTF_GUARDED_BY_LOCK(m_lock);
+    mutable Lock m_lock;
 };
 
 } // namespace WebCore

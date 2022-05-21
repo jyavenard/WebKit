@@ -87,39 +87,39 @@ void RemoteMediaResource::responseReceived(const ResourceResponse& response, boo
 
 void RemoteMediaResource::redirectReceived(ResourceRequest&& request, const ResourceResponse& response, CompletionHandler<void(ResourceRequest&&)>&& completionHandler)
 {
-    if (m_client)
-        m_client->redirectReceived(*this, WTFMove(request), response, WTFMove(completionHandler));
+    if (auto client = this->client())
+        client->redirectReceived(*this, WTFMove(request), response, WTFMove(completionHandler));
 }
 
 void RemoteMediaResource::dataSent(uint64_t bytesSent, uint64_t totalBytesToBeSent)
 {
-    if (m_client)
-        m_client->dataSent(*this, bytesSent, totalBytesToBeSent);
+    if (auto client = this->client())
+        client->dataSent(*this, bytesSent, totalBytesToBeSent);
 }
 
 void RemoteMediaResource::dataReceived(const SharedBuffer& data)
 {
-    if (m_client)
-        m_client->dataReceived(*this, data);
+    if (auto client = this->client())
+        client->dataReceived(*this, data);
 }
 
 void RemoteMediaResource::accessControlCheckFailed(const ResourceError& error)
 {
     m_didPassAccessControlCheck = false;
-    if (m_client)
-        m_client->accessControlCheckFailed(*this, error);
+    if (auto client = this->client())
+        client->accessControlCheckFailed(*this, error);
 }
 
 void RemoteMediaResource::loadFailed(const ResourceError& error)
 {
-    if (m_client)
-        m_client->loadFailed(*this, error);
+    if (auto client = this->client())
+        client->loadFailed(*this, error);
 }
 
 void RemoteMediaResource::loadFinished(const NetworkLoadMetrics& metrics)
 {
-    if (m_client)
-        m_client->loadFinished(*this, metrics);
+    if (auto client = this->client())
+        client->loadFinished(*this, metrics);
 }
 
 } // namespace WebKit

@@ -184,20 +184,21 @@ void MediaResource::responseReceived(CachedResource& resource, const ResourceRes
         static NeverDestroyed<const String> consoleMessage("Cross-origin media resource load denied by Cross-Origin Resource Sharing policy."_s);
         m_loader->document()->addConsoleMessage(MessageSource::Security, MessageLevel::Error, consoleMessage.get());
         m_didPassAccessControlCheck = false;
-        if (m_client)
-            m_client->accessControlCheckFailed(*this, ResourceError(errorDomainWebKitInternal, 0, response.url(), consoleMessage.get()));
+        if (auto client = this->client())
+            client->accessControlCheckFailed(*this, ResourceError(errorDomainWebKitInternal, 0, response.url(), consoleMessage.get()));
         stop();
         return;
     }
 
     m_didPassAccessControlCheck = m_resource->options().mode == FetchOptions::Mode::Cors;
-    if (m_client)
-        m_client->responseReceived(*this, response, [this, protectedThis = Ref { *this }, completionHandler = completionHandlerCaller.release()] (auto shouldContinue) mutable {
+    if (auto client = this->client()) {
+        client->responseReceived(*this, response, [this, protectedThis = Ref { *this }, completionHandler = completionHandlerCaller.release()] (auto shouldContinue) mutable {
             if (completionHandler)
                 completionHandler();
             if (shouldContinue == ShouldContinuePolicyCheck::No)
                 stop();
         });
+    }
 
     m_loader->addResponseForTesting(response);
 }
@@ -207,8 +208,8 @@ bool MediaResource::shouldCacheResponse(CachedResource& resource, const Resource
     ASSERT_UNUSED(resource, &resource == m_resource);
 
     RefPtr<MediaResource> protectedThis(this);
-    if (m_client)
-        return m_client->shouldCacheResponse(*this, response);
+    if (auto client = this->client())
+        return client->shouldCacheResponse(*this, response);
     return true;
 }
 
@@ -217,8 +218,8 @@ void MediaResource::redirectReceived(CachedResource& resource, ResourceRequest&&
     ASSERT_UNUSED(resource, &resource == m_resource);
 
     RefPtr<MediaResource> protectedThis(this);
-    if (m_client)
-        m_client->redirectReceived(*this, WTFMove(request), response, WTFMove(completionHandler));
+    if (auto client = this->client())
+        client->redirectReceived(*this, WTFMove(request), response, WTFMove(completionHandler));
     else
         completionHandler(WTFMove(request));
 }
@@ -228,8 +229,8 @@ void MediaResource::dataSent(CachedResource& resource, unsigned long long bytesS
     ASSERT_UNUSED(resource, &resource == m_resource);
 
     RefPtr<MediaResource> protectedThis(this);
-    if (m_client)
-        m_client->dataSent(*this, bytesSent, totalBytesToBeSent);
+    if (auto client = this->client())
+        client->dataSent(*this, bytesSent, totalBytesToBeSent);
 }
 
 void MediaResource::dataReceived(CachedResource& resource, const SharedBuffer& buffer)
@@ -237,8 +238,8 @@ void MediaResource::dataReceived(CachedResource& resource, const SharedBuffer& b
     ASSERT_UNUSED(resource, &resource == m_resource);
 
     RefPtr<MediaResource> protectedThis(this);
-    if (m_client)
-        m_client->dataReceived(*this, buffer);
+    if (auto client = this->client())
+        client->dataReceived(*this, buffer);
 }
 
 void MediaResource::notifyFinished(CachedResource& resource, const NetworkLoadMetrics& metrics)
@@ -246,11 +247,11 @@ void MediaResource::notifyFinished(CachedResource& resource, const NetworkLoadMe
     ASSERT_UNUSED(resource, &resource == m_resource);
 
     RefPtr<MediaResource> protectedThis(this);
-    if (m_client) {
+    if (auto client = this->client()) {
         if (m_resource->loadFailedOrCanceled())
-            m_client->loadFailed(*this, m_resource->resourceError());
+            client->loadFailed(*this, m_resource->resourceError());
         else
-            m_client->loadFinished(*this, metrics);
+            client->loadFinished(*this, metrics);
     }
     stop();
 }

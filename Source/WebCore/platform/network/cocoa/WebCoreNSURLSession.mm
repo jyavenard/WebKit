@@ -854,8 +854,8 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
 - (void)dealloc
 {
     if (!isMainThread() && _resource) {
-        if (auto* client = _resource->client())
-            static_cast<WebCoreNSURLSessionDataTaskClient*>(client)->clearTask();
+        if (auto client = _resource->client())
+            static_cast<WebCoreNSURLSessionDataTaskClient*>(client.get())->clearTask();
         callOnMainThread([resource = WTFMove(_resource)] { });
     }
 
