@@ -394,7 +394,7 @@ void MediaPlayerPrivateAVFoundationObjC::clearMediaCache(const String& path, Wal
         [fileManager removeItemAtURL:baseURL error:nil];
         return;
     }
-    
+
     NSArray *propertyKeys = @[NSURLNameKey, NSURLContentModificationDateKey, NSURLIsRegularFileKey];
     NSDirectoryEnumerator *enumerator = [fileManager enumeratorAtURL:baseURL includingPropertiesForKeys:
         propertyKeys options:NSDirectoryEnumerationSkipsSubdirectoryDescendants
@@ -449,9 +449,7 @@ MediaPlayerPrivateAVFoundationObjC::~MediaPlayerPrivateAVFoundationObjC()
 {
     weakPtrFactory().revokeAll();
 
-    m_targetQueue->dispatch([resourceLoader = retainPtr([m_avAsset resourceLoader])] () mutable {
-        [resourceLoader setDelegate:nil queue:0];
-    });
+    [[m_avAsset resourceLoader] setDelegate:nil queue:0];
 
     for (auto& pair : m_resourceLoaderMap) {
         m_targetQueue->dispatch([loader = pair.value] () mutable {
