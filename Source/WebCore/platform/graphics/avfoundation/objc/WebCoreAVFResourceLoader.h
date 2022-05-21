@@ -66,10 +66,12 @@ private:
     friend class DataURLResourceMediaLoader;
     friend class PlatformResourceMediaLoader;
 
-    void responseReceived(const ResourceResponse&);
+    // Return true if stopLoading() got called, indicating that no further processing should occur.
+    bool responseReceived(const ResourceResponse&);
+    bool newDataStoredInSharedBuffer(const FragmentedSharedBuffer&);
+
     void loadFailed(const ResourceError&);
     void loadFinished();
-    void newDataStoredInSharedBuffer(const FragmentedSharedBuffer&);
 
     WeakPtr<MediaPlayerPrivateAVFoundationObjC> m_parent; // Only ever dereferenced on the main thread.
     RetainPtr<AVAssetResourceLoadingRequest> m_avRequest;

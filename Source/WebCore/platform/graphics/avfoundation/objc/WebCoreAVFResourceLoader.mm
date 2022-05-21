@@ -229,7 +229,7 @@ void PlatformResourceMediaLoader::dataReceived(PlatformMediaResource&, const Sha
     m_parent.newDataStoredInSharedBuffer(*m_buffer.get());
 }
 
-class DataURLResourceMediaLoader : public CanMakeWeakPtr<DataURLResourceMediaLoader> {
+class DataURLResourceMediaLoader {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     DataURLResourceMediaLoader(WebCoreAVFResourceLoader&, ResourceRequest&&);
@@ -250,20 +250,18 @@ DataURLResourceMediaLoader::DataURLResourceMediaLoader(WebCoreAVFResourceLoader&
         m_buffer = SharedBuffer::create(WTFMove(result->data));
     }
 
-    m_parent.m_targetQueue->dispatch([this, weakThis = WeakPtr { *this }] {
-        if (!weakThis)
+    m_parent.m_targetQueue->dispatch([this, parent = Ref { m_parent }] {
+        if (m_parent.m_dataURLMediaLoader.get() != this)
             return;
 
         if (!m_buffer || m_response.isNull()) {
             m_parent.loadFailed(ResourceError(ResourceError::Type::General));
             return;
         }
-        m_parent.responseReceived(m_response);
-        if (!weakThis)
+        if (m_parent.responseReceived(m_response))
             return;
 
-        m_parent.newDataStoredInSharedBuffer(*m_buffer);
-        if (!weakThis)
+        if (m_parent.newDataStoredInSharedBuffer(*m_buffer))
             return;
 
         m_parent.loadFinished();
@@ -326,6 +324,7 @@ void WebCoreAVFResourceLoader::startLoading()
     [m_avRequest finishLoadingWithError:0];
 }
 
+// No code accessing `this` should ever be used after calling stopLoading().
 void WebCoreAVFResourceLoader::stopLoading()
 {
     assertIsCurrent(m_targetQueue);
@@ -357,14 +356,14 @@ void WebCoreAVFResourceLoader::invalidate()
 
 }
 
-void WebCoreAVFResourceLoader::responseReceived(const ResourceResponse& response)
+bool WebCoreAVFResourceLoader::responseReceived(const ResourceResponse& response)
 {
     assertIsCurrent(m_targetQueue);
 
     int status = response.httpStatusCode();
     if (status && (status < 200 || status > 299)) {
         [m_avRequest finishLoadingWithError:0];
-        return;
+        return true;
     }
 
     auto& contentRange = response.contentRange();
@@ -389,8 +388,10 @@ void WebCoreAVFResourceLoader::responseReceived(const ResourceResponse& response
         if (![m_avRequest dataRequest]) {
             [m_avRequest finishLoading];
             stopLoading();
+            return true;
         }
     }
+    return false;
 }
 
 void WebCoreAVFResourceLoader::loadFailed(const ResourceError& error)
@@ -414,13 +415,13 @@ void WebCoreAVFResourceLoader::loadFinished()
     stopLoading();
 }
 
-void WebCoreAVFResourceLoader::newDataStoredInSharedBuffer(const FragmentedSharedBuffer& data)
+bool WebCoreAVFResourceLoader::newDataStoredInSharedBuffer(const FragmentedSharedBuffer& data)
 {
     assertIsCurrent(m_targetQueue);
 
     AVAssetResourceLoadingDataRequest* dataRequest = [m_avRequest dataRequest];
     if (!dataRequest)
-        return;
+        return true;
 
     // Check for possible unsigned overflow.
     ASSERT(dataRequest.currentOffset >= dataRequest.requestedOffset);
@@ -454,12 +455,14 @@ void WebCoreAVFResourceLoader::newDataStoredInSharedBuffer(const FragmentedShare
 
     // There was not enough data in the buffer to satisfy the data request.
     if (remainingLength)
-        return;
+        return false;
 
     if (dataRequest.currentOffset + dataRequest.requestedLength >= dataRequest.requestedOffset) {
         [m_avRequest finishLoading];
         stopLoading();
+        return true;
     }
+    return false;
 }
 
 }
