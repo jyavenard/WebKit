@@ -334,28 +334,15 @@ void WebCoreAVFResourceLoader::stopLoading()
     m_dataURLMediaLoader = nullptr;
     m_resourceMediaLoader = nullptr;
 
-    if (m_platformMediaLoader) {
+    if (m_platformMediaLoader)
         m_platformMediaLoader->stop();
-        callOnMainThread([loader = WTFMove(m_platformMediaLoader)] { });
-    }
-    if (m_avRequest) {
-        callOnMainThread([parent = m_parent, invalidated = m_invalidated, avRequest = WTFMove(m_avRequest)] () mutable {
-            if (!invalidated && parent)
-                parent->didStopLoadingRequest(avRequest.get());
-        });
-    }
-}
 
-void WebCoreAVFResourceLoader::invalidate()
-{
-    assertIsCurrent(m_targetQueue);
+    callOnMainThread([parent = WTFMove(m_parent), loader = WTFMove(m_platformMediaLoader), avRequest = WTFMove(m_avRequest)] {
+        if (parent && avRequest)
+            parent->didStopLoadingRequest(avRequest.get());
+    });
 
-    if (m_invalidated)
-        return;
-    m_invalidated = true;
-    m_parent = nullptr;
-    stopLoading();
-
+    ASSERT(!m_parent && !m_platformMediaLoader && !m_avRequest);
 }
 
 bool WebCoreAVFResourceLoader::responseReceived(const String& mimeType, int status, const ParsedContentRange& contentRange, size_t expectedContentLength)

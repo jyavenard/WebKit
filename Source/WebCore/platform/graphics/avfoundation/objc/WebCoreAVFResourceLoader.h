@@ -58,7 +58,6 @@ public:
 
     void startLoading();
     void stopLoading();
-    void invalidate();
 
 private:
     WebCoreAVFResourceLoader(MediaPlayerPrivateAVFoundationObjC* parent, AVAssetResourceLoadingRequest*, WTF::WorkQueue&);
@@ -81,7 +80,6 @@ private:
     RefPtr<PlatformResourceMediaLoader> m_platformMediaLoader;
     size_t m_responseOffset { 0 };
     Ref<WTF::WorkQueue> m_targetQueue;
-    bool m_invalidated { false };
 };
 
 }

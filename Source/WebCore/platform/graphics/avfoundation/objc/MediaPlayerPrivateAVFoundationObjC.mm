@@ -453,7 +453,7 @@ MediaPlayerPrivateAVFoundationObjC::~MediaPlayerPrivateAVFoundationObjC()
 
     for (auto& pair : m_resourceLoaderMap) {
         m_targetQueue->dispatch([loader = pair.value] () mutable {
-            loader->invalidate();
+            loader->stopLoading();
         });
     }
 
@@ -2175,25 +2175,18 @@ bool MediaPlayerPrivateAVFoundationObjC::shouldWaitForLoadingOfResource(AVAssetR
 
 void MediaPlayerPrivateAVFoundationObjC::didCancelLoadingRequest(AVAssetResourceLoadingRequest* avRequest)
 {
-    RefPtr resourceLoader = m_resourceLoaderMap.get((__bridge CFTypeRef)avRequest);
-
-    if (resourceLoader) {
-        m_targetQueue->dispatch([resourceLoader = WTFMove(resourceLoader)] () mutable {
-            resourceLoader->stopLoading();
+    ASSERT(isMainThread());
+    if (RefPtr resourceLoader = m_resourceLoaderMap.get((__bridge CFTypeRef)avRequest)) {
+        m_targetQueue->dispatch([resourceLoader = WTFMove(resourceLoader)] { resourceLoader->stopLoading();
         });
     }
 }
 
 void MediaPlayerPrivateAVFoundationObjC::didStopLoadingRequest(AVAssetResourceLoadingRequest *avRequest)
 {
-    RefPtr resourceLoader = m_resourceLoaderMap.get((__bridge CFTypeRef)avRequest);
-    m_resourceLoaderMap.remove((__bridge CFTypeRef)avRequest);
-
-    if (resourceLoader) {
-        m_targetQueue->dispatch([resourceLoader = WTFMove(resourceLoader)] () mutable {
-            resourceLoader->invalidate();
-        });
-    }
+    ASSERT(isMainThread());
+    if (RefPtr resourceLoader = m_resourceLoaderMap.take((__bridge CFTypeRef)avRequest))
+        m_targetQueue->dispatch([resourceLoader = WTFMove(resourceLoader)] { });
 }
 
 bool MediaPlayerPrivateAVFoundationObjC::isAvailable()
