@@ -299,10 +299,14 @@ void WebCoreAVFResourceLoader::startLoading()
     ResourceRequest request(nsRequest);
     request.setPriority(ResourceLoadPriority::Low);
 
-    if (AVAssetResourceLoadingDataRequest *dataRequest = [m_avRequest dataRequest]; dataRequest.requestedLength
+    AVAssetResourceLoadingDataRequest* dataRequest = [m_avRequest dataRequest];
+    m_currentOffset = m_requestedOffset = dataRequest ? [dataRequest requestedOffset] : -1;
+    m_requestedLength = dataRequest ? [dataRequest requestedLength] : -1;
+
+    if (dataRequest && m_requestedLength > 0
         && !request.hasHTTPHeaderField(HTTPHeaderName::Range)) {
-        String rangeEnd = dataRequest.requestsAllDataToEndOfResource ? emptyString() : makeString(dataRequest.requestedOffset + dataRequest.requestedLength - 1);
-        request.addHTTPHeaderField(HTTPHeaderName::Range, makeString("bytes=", dataRequest.requestedOffset, '-', rangeEnd));
+        String rangeEnd = dataRequest.requestsAllDataToEndOfResource ? emptyString() : makeString(m_requestedOffset + m_requestedLength - 1);
+        request.addHTTPHeaderField(HTTPHeaderName::Range, makeString("bytes=", m_requestedOffset, '-', rangeEnd));
     }
 
     if (request.url().protocolIsData()) {
@@ -411,31 +415,34 @@ bool WebCoreAVFResourceLoader::newDataStoredInSharedBuffer(const FragmentedShare
         return true;
 
     // Check for possible unsigned overflow.
-    ASSERT(dataRequest.currentOffset >= dataRequest.requestedOffset);
-    ASSERT(dataRequest.requestedLength >= (dataRequest.currentOffset - dataRequest.requestedOffset));
+    ASSERT(m_currentOffset >= m_requestedOffset);
+    ASSERT(m_requestedLength >= m_currentOffset - m_requestedOffset);
 
-    NSUInteger remainingLength = dataRequest.requestedLength - static_cast<NSUInteger>(dataRequest.currentOffset - dataRequest.requestedOffset);
+    NSUInteger remainingLength = m_requestedLength - (m_currentOffset - m_requestedOffset);
 
-    auto bytesToSkip = dataRequest.currentOffset - m_responseOffset;
+    auto bytesToSkip = m_currentOffset - m_responseOffset;
     auto array = data.createNSDataArray();
-    for (NSData *segment in array.get()) {
+    for (NSData* segment in array.get()) {
         if (bytesToSkip) {
             if (bytesToSkip > segment.length) {
                 bytesToSkip -= segment.length;
                 continue;
             }
             auto bytesToUse = segment.length - bytesToSkip;
-            [dataRequest respondWithData:[segment subdataWithRange:NSMakeRange(static_cast<NSUInteger>(bytesToSkip), static_cast<NSUInteger>(segment.length - bytesToSkip))]];
+            [dataRequest respondWithData:[segment subdataWithRange:NSMakeRange(static_cast<NSUInteger>(bytesToSkip), static_cast<NSUInteger>(bytesToUse))]];
             bytesToSkip = 0;
             remainingLength -= bytesToUse;
+            m_currentOffset += bytesToUse;
             continue;
         }
         if (segment.length <= remainingLength) {
             [dataRequest respondWithData:segment];
             remainingLength -= segment.length;
+            m_currentOffset += segment.length;
             continue;
         }
         [dataRequest respondWithData:[segment subdataWithRange:NSMakeRange(0, remainingLength)]];
+        m_currentOffset += remainingLength;
         remainingLength = 0;
         break;
     }
@@ -444,7 +451,7 @@ bool WebCoreAVFResourceLoader::newDataStoredInSharedBuffer(const FragmentedShare
     if (remainingLength)
         return false;
 
-    if (dataRequest.currentOffset + dataRequest.requestedLength >= dataRequest.requestedOffset) {
+    if (m_currentOffset + m_requestedLength >= m_requestedOffset) {
         [m_avRequest finishLoading];
         stopLoading();
         return true;

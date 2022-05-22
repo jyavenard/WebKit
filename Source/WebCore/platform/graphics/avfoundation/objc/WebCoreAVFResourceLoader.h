@@ -79,6 +79,10 @@ private:
     std::unique_ptr<CachedResourceMediaLoader> m_resourceMediaLoader;
     RefPtr<PlatformResourceMediaLoader> m_platformMediaLoader;
     size_t m_responseOffset { 0 };
+    int64_t m_requestedLength { 0 };
+    int64_t m_requestedOffset { 0 };
+    int64_t m_currentOffset { 0 };
+
     Ref<WTF::WorkQueue> m_targetQueue;
 };
 
