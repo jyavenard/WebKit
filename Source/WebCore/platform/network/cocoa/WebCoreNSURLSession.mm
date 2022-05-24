@@ -58,7 +58,7 @@ static NSDate * __nullable networkLoadMetricsDate(MonotonicTime time)
 }
 
 @interface WebCoreNSURLSessionTaskTransactionMetrics : NSObject
-- (instancetype)_initWithMetrics:(WebCore::NetworkLoadMetrics&&)metrics onTarget:(WTF::WorkQueue*)workQueue;
+- (instancetype)_initWithMetrics:(WebCore::NetworkLoadMetrics&&)metrics onTarget:(WorkQueue*)workQueue;
 @property (nullable, copy, readonly) NSDate *fetchStartDate;
 @property (nullable, copy, readonly) NSDate *domainLookupStartDate;
 @property (nullable, copy, readonly) NSDate *domainLookupEndDate;
@@ -81,10 +81,10 @@ static NSDate * __nullable networkLoadMetricsDate(MonotonicTime time)
 
 @implementation WebCoreNSURLSessionTaskTransactionMetrics {
     WebCore::NetworkLoadMetrics _metrics;
-    RefPtr<WTF::WorkQueue> _targetQueue;
+    RefPtr<WorkQueue> _targetQueue;
 }
 
-- (instancetype)_initWithMetrics:(WebCore::NetworkLoadMetrics&&)metrics onTarget:(WTF::WorkQueue*)queue
+- (instancetype)_initWithMetrics:(WebCore::NetworkLoadMetrics&&)metrics onTarget:(WorkQueue*)queue
 {
     assertIsCurrent(*queue);
 
@@ -221,16 +221,16 @@ static NSDate * __nullable networkLoadMetricsDate(MonotonicTime time)
 @end
 
 @interface WebCoreNSURLSessionTaskMetrics : NSObject
-- (instancetype)_initWithMetrics:(WebCore::NetworkLoadMetrics&&)metrics onTarget:(nonnull WTF::WorkQueue *)targetQueue;
+- (instancetype)_initWithMetrics:(WebCore::NetworkLoadMetrics&&)metrics onTarget:(nonnull WorkQueue *)targetQueue;
 @property (copy, readonly) NSArray<NSURLSessionTaskTransactionMetrics *> *transactionMetrics;
 @end
 
 @implementation WebCoreNSURLSessionTaskMetrics {
     RetainPtr<WebCoreNSURLSessionTaskTransactionMetrics> _transactionMetrics;
-    RefPtr<WTF::WorkQueue> _targetQueue;
+    RefPtr<WorkQueue> _targetQueue;
 }
 
-- (instancetype)_initWithMetrics:(WebCore::NetworkLoadMetrics&&)metrics onTarget:(nonnull WTF::WorkQueue *)targetQueue
+- (instancetype)_initWithMetrics:(WebCore::NetworkLoadMetrics&&)metrics onTarget:(nonnull WorkQueue *)targetQueue
 {
     assertIsCurrent(*targetQueue);
 
@@ -269,7 +269,7 @@ static NSDate * __nullable networkLoadMetricsDate(MonotonicTime time)
 @end
 
 @interface WebCoreNSURLSessionDataTask ()
-- (id)initWithSession:(WebCoreNSURLSession *)session identifier:(NSUInteger)identifier request:(NSURLRequest *)request targetQueue:(WTF::WorkQueue*)targetQueue;
+- (id)initWithSession:(WebCoreNSURLSession *)session identifier:(NSUInteger)identifier request:(NSURLRequest *)request targetQueue:(WorkQueue*)targetQueue;
 - (void)_cancel:(Function<void()>&&)completionHandler;
 @property (assign) WebCoreNSURLSession * _Nullable session;
 
@@ -297,7 +297,7 @@ NS_ASSUME_NONNULL_END
     _targetQueue = _loader->targetQueue();
     self.delegate = inDelegate;
     _queue = inQueue ? inQueue : [NSOperationQueue mainQueue];
-    _internalQueue = WTF::WorkQueue::create("WebCoreNSURLSession _internalQueue");
+    _internalQueue = WorkQueue::create("WebCoreNSURLSession _internalQueue");
     _targetQueue->dispatch([strongSelf = retainPtr(self)] {
         strongSelf->_rangeResponseGenerator = RangeResponseGenerator::create(*strongSelf->_targetQueue);
     });
@@ -615,7 +615,7 @@ namespace WebCore {
 class WebCoreNSURLSessionDataTaskClient : public PlatformMediaResourceClient {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    WebCoreNSURLSessionDataTaskClient(WebCoreNSURLSessionDataTask *task, WTF::WorkQueue& target)
+    WebCoreNSURLSessionDataTaskClient(WebCoreNSURLSessionDataTask *task, WorkQueue& target)
         : m_task(task)
         , m_targetQueue(target)
     {
@@ -634,7 +634,7 @@ public:
 
 private:
     WeakObjCPtr<WebCoreNSURLSessionDataTask> m_task; // Only accessed on target queue.
-    Ref<WTF::WorkQueue> m_targetQueue;
+    Ref<WorkQueue> m_targetQueue;
 };
 
 void WebCoreNSURLSessionDataTaskClient::clearTask()
@@ -721,7 +721,7 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
 #pragma mark - WebCoreNSURLSessionDataTask
 
 @implementation WebCoreNSURLSessionDataTask
-- (id)initWithSession:(WebCoreNSURLSession *)session identifier:(NSUInteger)identifier request:(NSURLRequest *)request targetQueue:(WTF::WorkQueue*)targetQueue
+- (id)initWithSession:(WebCoreNSURLSession *)session identifier:(NSUInteger)identifier request:(NSURLRequest *)request targetQueue:(WorkQueue*)targetQueue
 {
     self.taskIdentifier = identifier;
     self.state = NSURLSessionTaskStateSuspended;

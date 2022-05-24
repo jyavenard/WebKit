@@ -482,7 +482,7 @@ private:
     std::unique_ptr<Observer<void()>> m_currentImageChangedObserver;
     std::unique_ptr<Observer<void()>> m_waitForVideoOutputMediaDataWillChangeObserver;
     ProcessIdentity m_resourceOwner;
-    Ref<WTF::WorkQueue> m_targetQueue { WTF::WorkQueue::main() };
+    Ref<WorkQueue> m_targetQueue { WorkQueue::main() };
 };
 
 }

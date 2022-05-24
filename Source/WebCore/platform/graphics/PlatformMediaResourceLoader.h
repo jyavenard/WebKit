@@ -74,7 +74,7 @@ public:
     virtual void sendH2Ping(const URL&, CompletionHandler<void(Expected<Seconds, ResourceError>&&)>&&) = 0;
 
     // Can be called on any threads. Return the WorkQueue on which the PlaftormMediaResource and PlatformMediaResourceClient must be be called on.
-    virtual Ref<WTF::WorkQueue> targetQueue() { return WTF::WorkQueue::main(); }
+    virtual Ref<WorkQueue> targetQueue() { return WorkQueue::main(); }
     // requestResource will be called on the main thread, the PlatformMediaResource object is to be used on targetQueue().
     virtual RefPtr<PlatformMediaResource> requestResource(ResourceRequest&&, LoadOptions) = 0;
 

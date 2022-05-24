@@ -56,6 +56,10 @@ class WebCoreNSURLSessionDataTaskClient;
 enum class ShouldContinuePolicyCheck : bool;
 }
 
+namespace WTF {
+class WorkQueue;
+}
+
 enum class WebCoreNSURLSessionCORSAccessCheckResults : uint8_t {
     Unknown,
     Pass,

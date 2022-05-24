@@ -164,7 +164,7 @@ private:
     void loadFinished(PlatformMediaResource&, const NetworkLoadMetrics&) final { loadFinished(); }
 
     WebCoreAVFResourceLoader& m_parent;
-    const WTF::WorkQueue& m_targetQueue;
+    const WorkQueue& m_targetQueue;
     RefPtr<PlatformMediaResource> m_resource;
     SharedBufferBuilder m_buffer;
 };
@@ -270,14 +270,14 @@ DataURLResourceMediaLoader::DataURLResourceMediaLoader(WebCoreAVFResourceLoader&
     }
 }
 
-Ref<WebCoreAVFResourceLoader> WebCoreAVFResourceLoader::create(MediaPlayerPrivateAVFoundationObjC* parent, AVAssetResourceLoadingRequest *avRequest, WTF::WorkQueue& targetQueue)
+Ref<WebCoreAVFResourceLoader> WebCoreAVFResourceLoader::create(MediaPlayerPrivateAVFoundationObjC* parent, AVAssetResourceLoadingRequest *avRequest, WorkQueue& targetQueue)
 {
     ASSERT(avRequest);
     ASSERT(parent);
     return adoptRef(*new WebCoreAVFResourceLoader(parent, avRequest, targetQueue));
 }
 
-WebCoreAVFResourceLoader::WebCoreAVFResourceLoader(MediaPlayerPrivateAVFoundationObjC* parent, AVAssetResourceLoadingRequest *avRequest, WTF::WorkQueue& targetQueue)
+WebCoreAVFResourceLoader::WebCoreAVFResourceLoader(MediaPlayerPrivateAVFoundationObjC* parent, AVAssetResourceLoadingRequest *avRequest, WorkQueue& targetQueue)
     : m_parent(parent)
     , m_avRequest(avRequest)
     , m_targetQueue(targetQueue)

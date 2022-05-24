@@ -35,6 +35,7 @@
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <wtf/FastMalloc.h>
 #import <wtf/text/StringBuilder.h>
+#import <wtf/WorkQueue.h>
 
 namespace WebCore {
 
@@ -77,7 +78,7 @@ struct RangeResponseGenerator::Data {
     RefPtr<PlatformMediaResource> resource;
 };
 
-RangeResponseGenerator::RangeResponseGenerator(WTF::WorkQueue& targetQueue)
+RangeResponseGenerator::RangeResponseGenerator(WorkQueue& targetQueue)
     : m_targetQueue(targetQueue)
 {
 }
