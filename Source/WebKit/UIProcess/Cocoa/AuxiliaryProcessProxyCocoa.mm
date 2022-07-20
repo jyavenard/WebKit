@@ -26,7 +26,7 @@
 #import "config.h"
 #import "AuxiliaryProcessProxy.h"
 
-#import <WebCore/WebMAudioUtilitiesCocoa.h>
+#import <WebCore/CMUtilities.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
 #import <pal/cf/AudioToolboxSoftLink.h>
@@ -42,9 +42,10 @@ RefPtr<WebCore::SharedBuffer> AuxiliaryProcessProxy::fetchAudioComponentServerRe
 
     if (!PAL::isAudioToolboxCoreFrameworkAvailable() || !PAL::canLoad_AudioToolboxCore_AudioComponentFetchServerRegistrations())
         return nullptr;
-    
+
     WebCore::registerOpusDecoderIfNeeded();
     WebCore::registerVorbisDecoderIfNeeded();
+    WebCore::registerAtmosDecodersIfNeeded();
 
     if (noErr != AudioComponentFetchServerRegistrations(&registrations) || !registrations)
         return nullptr;

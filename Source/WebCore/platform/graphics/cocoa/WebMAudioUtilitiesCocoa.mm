@@ -29,13 +29,11 @@
 #if PLATFORM(COCOA)
 
 #import "CAAudioStreamDescription.h"
+#import "CMUtilities.h"
 #import "Logging.h"
 #import "MediaSample.h"
 #import "MediaUtilities.h"
-#import "PlatformMediaSessionManager.h"
 #import "SharedBuffer.h"
-#import <AudioToolbox/AudioCodec.h>
-#import <AudioToolbox/AudioComponent.h>
 #import <AudioToolbox/AudioFormat.h>
 #import <dlfcn.h>
 #import <wtf/FlipBytes.h>
@@ -48,34 +46,6 @@
 namespace WebCore {
 
 #if ENABLE(VORBIS) || ENABLE(OPUS)
-static bool registerDecoderFactory(const char* decoderName, OSType decoderType)
-{
-    AudioComponentDescription desc { kAudioDecoderComponentType, decoderType, 'appl', kAudioComponentFlag_SandboxSafe, 0 };
-    AudioComponent comp = PAL::AudioComponentFindNext(0, &desc);
-    if (comp)
-        return true; // Already registered.
-
-#if PLATFORM(MAC)
-    constexpr char audioComponentsDylib[] = "/System/Library/Components/AudioCodecs.component/Contents/MacOS/AudioCodecs";
-    void *handle = dlopen(audioComponentsDylib, RTLD_LAZY | RTLD_LOCAL);
-    if (!handle)
-        return false;
-
-    AudioComponentFactoryFunction decoderFactory = reinterpret_cast<AudioComponentFactoryFunction>(dlsym(handle, decoderName));
-    if (!decoderFactory)
-        return false;
-
-    if (!AudioComponentRegister(&desc, CFSTR(""), 0, decoderFactory)) {
-        dlclose(handle);
-        return false;
-    }
-
-    return true;
-#else
-    UNUSED_PARAM(decoderName);
-    return false;
-#endif
-}
 
 static RefPtr<AudioInfo> createAudioInfoForFormat(OSType formatID, Vector<uint8_t>&& magicCookie)
 {
@@ -343,34 +313,6 @@ static Vector<uint8_t> cookieFromOpusCookieContents(const OpusCookieContents& co
 }
 #endif
 
-bool isOpusDecoderAvailable()
-{
-#if ENABLE(OPUS)
-    if (!PlatformMediaSessionManager::opusDecoderEnabled())
-        return false;
-
-    return registerOpusDecoderIfNeeded();
-#else
-    return false;
-#endif
-}
-
-bool registerOpusDecoderIfNeeded()
-{
-#if ENABLE(OPUS)
-    static bool available;
-
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        available = registerDecoderFactory("ACOpusDecoderFactory", kAudioFormatOpus);
-    });
-
-    return available;
-#else
-    return false;
-#endif
-}
-
 RefPtr<AudioInfo> createOpusAudioInfo(const OpusCookieContents& cookieContents)
 {
 #if ENABLE(OPUS)
@@ -445,34 +387,6 @@ static Vector<uint8_t> cookieFromVorbisCodecPrivate(size_t codecPrivateSize, con
     return cookieData;
 }
 #endif // ENABLE(VORBIS)
-
-bool isVorbisDecoderAvailable()
-{
-#if ENABLE(VORBIS)
-    if (!PlatformMediaSessionManager::vorbisDecoderEnabled())
-        return false;
-
-    return registerVorbisDecoderIfNeeded();
-#else
-    return false;
-#endif
-}
-
-bool registerVorbisDecoderIfNeeded()
-{
-#if ENABLE(VORBIS)
-    static bool available;
-
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        available = registerDecoderFactory("ACVorbisDecoderFactory", 'vorb');
-    });
-
-    return available;
-#else
-    return false;
-#endif
-}
 
 RefPtr<AudioInfo> createVorbisAudioInfo(size_t privateDataSize, const void* privateData)
 {

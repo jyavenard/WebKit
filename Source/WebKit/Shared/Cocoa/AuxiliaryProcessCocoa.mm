@@ -31,6 +31,7 @@
 #import "SharedBufferReference.h"
 #import "WKCrashReporter.h"
 #import "XPCServiceEntryPoint.h"
+#import <WebCore/CMUtilities.h>
 #import <WebCore/FloatingPointEnvironment.h>
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <mach/task.h>
@@ -155,7 +156,7 @@ id AuxiliaryProcess::decodePreferenceValue(const std::optional<String>& encodedV
 {
     if (!encodedValue)
         return nil;
-    
+
     auto encodedData = adoptNS([[NSData alloc] initWithBase64EncodedString:*encodedValue options:0]);
     if (!encodedData)
         return nil;
@@ -254,7 +255,7 @@ void AuxiliaryProcess::consumeAudioComponentRegistrations(const IPC::SharedBuffe
         return;
     auto registrations = data.unsafeBuffer()->createCFData();
 
-    auto err = AudioComponentApplyServerRegistrations(registrations.get());
+    auto err = PAL::AudioComponentApplyServerRegistrations(registrations.get());
     if (noErr != err)
         RELEASE_LOG_ERROR(Process, "Could not apply AudioComponent registrations, err(%ld)", static_cast<long>(err));
 }

@@ -58,6 +58,7 @@
 #import <JavaScriptCore/Options.h>
 #import <WebCore/AVAssetMIMETypeCache.h>
 #import <WebCore/AXObjectCache.h>
+#import <WebCore/CMUtilities.h>
 #import <WebCore/CPUMonitor.h>
 #import <WebCore/DeprecatedGlobalSettings.h>
 #import <WebCore/DisplayRefreshMonitorManager.h>
@@ -86,7 +87,6 @@
 #import <WebCore/SystemBattery.h>
 #import <WebCore/SystemSoundManager.h>
 #import <WebCore/UTIUtilities.h>
-#import <WebCore/WebMAudioUtilitiesCocoa.h>
 #import <algorithm>
 #import <dispatch/dispatch.h>
 #import <mach/mach.h>

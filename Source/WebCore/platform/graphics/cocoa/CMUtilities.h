@@ -43,6 +43,12 @@ WEBCORE_EXPORT RetainPtr<CMFormatDescriptionRef> createFormatDescriptionFromTrac
 // is set it will be used, otherwise it will be created from the MediaSamplesBlock's TrackInfo.
 WEBCORE_EXPORT Expected<RetainPtr<CMSampleBufferRef>, CString> toCMSampleBuffer(MediaSamplesBlock&&, CMFormatDescriptionRef = nullptr);
 
+WEBCORE_EXPORT bool isVorbisDecoderAvailable();
+WEBCORE_EXPORT bool registerVorbisDecoderIfNeeded();
+WEBCORE_EXPORT bool isOpusDecoderAvailable();
+WEBCORE_EXPORT bool registerOpusDecoderIfNeeded();
+WEBCORE_EXPORT bool registerAtmosDecodersIfNeeded();
+
 }
 
 #endif

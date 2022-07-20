@@ -32,8 +32,11 @@
 #import "Logging.h"
 #import "MediaSample.h"
 #import "MediaUtilities.h"
+#import "PlatformMediaSessionManager.h"
 #import "SharedBuffer.h"
 #import "WebMAudioUtilitiesCocoa.h"
+#import <AudioToolbox/AudioCodec.h>
+#import <AudioToolbox/AudioComponent.h>
 #import <CoreMedia/CMFormatDescription.h>
 #import <pal/avfoundation/MediaTimeAVFoundation.h>
 #import <wtf/Scope.h>
@@ -268,6 +271,135 @@ Expected<RetainPtr<CMSampleBufferRef>, CString> toCMSampleBuffer(MediaSamplesBlo
         PAL::CMSetAttachment(rawSampleBuffer, PAL::kCMSampleBufferAttachmentKey_FillDiscontinuitiesWithSilence, *samples.discontinuity() ? kCFBooleanTrue : kCFBooleanFalse, kCMAttachmentMode_ShouldPropagate);
 
     return adoptCF(rawSampleBuffer);
+}
+
+#if ENABLE(OPUS) || ENABLE(VORBIS) || ENABLE(ATMOS)
+static bool registerDecoderFactory(const char* decoderName, OSType decoderType)
+{
+    AudioComponentDescription desc { kAudioDecoderComponentType, decoderType, 'appl', kAudioComponentFlag_SandboxSafe, 0 };
+    AudioComponent comp = PAL::AudioComponentFindNext(0, &desc);
+    if (comp)
+        return true; // Already registered.
+
+#if PLATFORM(MAC)
+    constexpr char audioComponentsDylib[] = "/System/Library/Components/AudioCodecs.component/Contents/MacOS/AudioCodecs";
+    void *handle = dlopen(audioComponentsDylib, RTLD_LAZY | RTLD_LOCAL);
+    if (!handle)
+        return false;
+
+    AudioComponentFactoryFunction decoderFactory = reinterpret_cast<AudioComponentFactoryFunction>(dlsym(handle, decoderName));
+    if (!decoderFactory)
+        return false;
+
+    if (!AudioComponentRegister(&desc, CFSTR(""), 0, decoderFactory)) {
+        dlclose(handle);
+        return false;
+    }
+
+    return true;
+#else
+    UNUSED_PARAM(decoderName);
+    return false;
+#endif
+}
+
+#endif // ENABLE(OPUS) || ENABLE(VORBIS) || ENABLE(ATMOS)
+
+bool isVorbisDecoderAvailable()
+{
+#if ENABLE(VORBIS)
+    if (!PlatformMediaSessionManager::vorbisDecoderEnabled())
+        return false;
+
+    return registerVorbisDecoderIfNeeded();
+#else
+    return false;
+#endif
+}
+
+bool registerVorbisDecoderIfNeeded()
+{
+#if ENABLE(VORBIS)
+    static bool available;
+
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        available = registerDecoderFactory("ACVorbisDecoderFactory", 'vorb');
+    });
+
+    return available;
+#else
+    return false;
+#endif
+}
+
+bool isOpusDecoderAvailable()
+{
+#if ENABLE(OPUS)
+    if (!PlatformMediaSessionManager::opusDecoderEnabled())
+        return false;
+
+    return registerOpusDecoderIfNeeded();
+#else
+    return false;
+#endif
+}
+
+bool registerOpusDecoderIfNeeded()
+{
+#if ENABLE(OPUS)
+    static bool available;
+
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        available = registerDecoderFactory("ACOpusDecoderFactory", kAudioFormatOpus);
+    });
+
+    return available;
+#else
+    return false;
+#endif
+}
+
+bool registerAtmosDecodersIfNeeded()
+{
+#if ENABLE(ATMOS)
+    static bool available;
+
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        constexpr uint32_t numAtmosDecoders = 4;
+        constexpr struct { OSType subType; const char* factorySymbol; } atmosDecoderEntries[] = {
+            {
+                .subType = 'ec+3',
+                .factorySymbol = "ACAC3DecoderNewFactory"
+            },
+            {
+                .subType = 'pc+3',
+                .factorySymbol = "ACAtmosCPEDecoderWrapperFactory"
+            },
+            {
+                .subType = 'qc+3',
+                .factorySymbol = "ACAtmosCPEDecoderWrapperFactory"
+            },
+            {
+                .subType = 'zc+3',
+                .factorySymbol = "ACAtmosCPEDecoderWrapperFactory"
+            },
+        };
+        available = true;
+        for (uint32_t i = 0; i < numAtmosDecoders; i++) {
+            bool decoderAvailable = registerDecoderFactory(atmosDecoderEntries[i].factorySymbol, atmosDecoderEntries[i].subType);
+            if (!decoderAvailable)
+                RELEASE_LOG_ERROR(Media, "Decoder not available: %s", atmosDecoderEntries[i].factorySymbol);
+            available &= decoderAvailable;
+        }
+    });
+
+    return available;
+#else
+    return false;
+#endif
 }
 
 } // namespace WebCore

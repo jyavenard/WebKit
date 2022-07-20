@@ -35,8 +35,6 @@ namespace WebCore {
 
 struct AudioInfo;
 
-WEBCORE_EXPORT bool isVorbisDecoderAvailable();
-WEBCORE_EXPORT bool registerVorbisDecoderIfNeeded();
 RefPtr<AudioInfo> createVorbisAudioInfo(size_t, const void*);
 
 struct OpusCookieContents {
@@ -54,8 +52,6 @@ struct OpusCookieContents {
     bool hasPadding { false };
 };
 
-WEBCORE_EXPORT bool isOpusDecoderAvailable();
-WEBCORE_EXPORT bool registerOpusDecoderIfNeeded();
 static constexpr size_t kOpusHeaderSize = 19;
 static constexpr size_t kOpusMinimumFrameDataSize = 2;
 bool parseOpusPrivateData(size_t privateDataSize, const void* privateData, size_t frameDataSize, const void* frameData, OpusCookieContents&);
