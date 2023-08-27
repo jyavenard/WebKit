@@ -198,6 +198,7 @@ if (ENABLE_WEBCORE)
         Tests/WebCore/IntSizeTests.cpp
         Tests/WebCore/KeyedCoding.cpp
         Tests/WebCore/LayoutUnitTests.cpp
+        Tests/WebCore/MediaPromise.cpp
         Tests/WebCore/MIMETypeRegistry.cpp
         Tests/WebCore/NowPlayingInfoTests.cpp
         Tests/WebCore/ParsedContentRange.cpp

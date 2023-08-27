@@ -359,6 +359,7 @@
 		51EB126424CA6B66000CB030 /* SonyDualShock4.mm in Sources */ = {isa = PBXBuildFile; fileRef = 51EB125F24CA6B5F000CB030 /* SonyDualShock4.mm */; };
 		51EB126524CA6B66000CB030 /* SteelSeriesNimbus.mm in Sources */ = {isa = PBXBuildFile; fileRef = 51EB126124CA6B5F000CB030 /* SteelSeriesNimbus.mm */; };
 		51EB126724CB8753000CB030 /* SunLightApplicationGenericNES.mm in Sources */ = {isa = PBXBuildFile; fileRef = 51EB126624CB8493000CB030 /* SunLightApplicationGenericNES.mm */; };
+		51EF822E2A9F80DA00E42795 /* MediaPromise.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 513F56B82A9F517F00B92384 /* MediaPromise.cpp */; };
 		520BCF4C141EB09E00937EA8 /* WebArchive_Bundle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 520BCF4A141EB09E00937EA8 /* WebArchive_Bundle.cpp */; };
 		521D1B7327713E80003900C5 /* web-authentication-get-assertion-hid-internal-uv-pin-fallback.html in Copy Resources */ = {isa = PBXBuildFile; fileRef = 521D1B7227713E80003900C5 /* web-authentication-get-assertion-hid-internal-uv-pin-fallback.html */; };
 		5245178721B9F57B0082CB34 /* RenderingProgressPlugIn.mm in Sources */ = {isa = PBXBuildFile; fileRef = 52D5D6BE21B9F1B20046ABA6 /* RenderingProgressPlugIn.mm */; };
@@ -2439,6 +2440,7 @@
 		51393E1D1523944A005F39C5 /* DOMWindowExtensionBasic_Bundle.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = DOMWindowExtensionBasic_Bundle.cpp; sourceTree = "<group>"; };
 		51393E1E1523944A005F39C5 /* DOMWindowExtensionBasic.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = DOMWindowExtensionBasic.cpp; sourceTree = "<group>"; };
 		51396E19222E4E8600A42FCE /* LoadFileURL.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = LoadFileURL.mm; sourceTree = "<group>"; };
+		513F56B82A9F517F00B92384 /* MediaPromise.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = MediaPromise.cpp; sourceTree = "<group>"; };
 		5142B2701517C88B00C32B19 /* ContextMenuCanCopyURL.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = ContextMenuCanCopyURL.mm; sourceTree = "<group>"; };
 		5142B2721517C89100C32B19 /* ContextMenuCanCopyURL.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = ContextMenuCanCopyURL.html; sourceTree = "<group>"; };
 		514958BD1F7427AC00E87BAD /* WKWebViewAutofillTests.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = WKWebViewAutofillTests.mm; sourceTree = "<group>"; };
@@ -4332,6 +4334,7 @@
 				6BF4A682239ED4CD00E2F45B /* LoggedInStatus.cpp */,
 				076E507E1F45031E006E9F5A /* Logging.cpp */,
 				CE1866471F72E8F100A0CAB6 /* MarkedText.cpp */,
+				513F56B82A9F517F00B92384 /* MediaPromise.cpp */,
 				A5B149DD1F5A19DC00C6DAFF /* MIMETypeRegistry.cpp */,
 				5159F266260D43E300B2DA3C /* NowPlayingInfoTests.cpp */,
 				CD225C071C45A69200140761 /* ParsedContentRange.cpp */,
@@ -6493,6 +6496,7 @@
 				510A920C24D5275500BFD89C /* LogitechF710.mm in Sources */,
 				CE1866491F72E8F100A0CAB6 /* MarkedText.cpp in Sources */,
 				CDA315981ED53651009F60D3 /* MediaPlaybackSleepAssertion.mm in Sources */,
+				51EF822E2A9F80DA00E42795 /* MediaPromise.cpp in Sources */,
 				075A9CF526177218006DFA3A /* MediaSessionCoordinatorTest.mm in Sources */,
 				CDC9442E1EF1FC080059C3C4 /* MediaStreamTrackDetached.mm in Sources */,
 				7CCE7EC51A411A7E00447C4C /* MemoryCacheDisableWithinResourceLoadDelegate.mm in Sources */,

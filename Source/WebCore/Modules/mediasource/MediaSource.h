@@ -42,6 +42,7 @@
 #include <wtf/RefCounted.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/WeakPtr.h>
+#include "MediaPromise.h"
 
 namespace WebCore {
 
@@ -192,6 +193,7 @@ private:
     const void* m_logIdentifier { nullptr };
 #endif
     uint64_t m_associatedRegistryCount { 0 };
+    Ref<GenericPromise> testMethod();
 };
 
 String convertEnumerationToString(MediaSource::EndOfStreamError);

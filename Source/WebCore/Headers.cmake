@@ -1657,6 +1657,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/MediaCapabilitiesEncodingInfo.h
     platform/MediaCapabilitiesInfo.h
     platform/MediaDescription.h
+    platform/MediaPromise.h
     platform/MediaSample.h
     platform/MediaSelectionOption.h
     platform/MediaSessionGroupIdentifier.h
@@ -1670,6 +1671,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/PODIntervalTree.h
     platform/PODRedBlackTree.h
     platform/PageIdentifier.h
+    platform/ParametersStorage.h
     platform/Pasteboard.h
     platform/PasteboardContext.h
     platform/PasteboardCustomData.h
@@ -1741,6 +1743,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/ThreadTimers.h
     platform/Timer.h
     platform/TouchAction.h
+    platform/TypeTraits.h
     platform/UserActivity.h
     platform/UserAgent.h
     platform/UserInterfaceLayoutDirection.h

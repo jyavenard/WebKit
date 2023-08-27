@@ -85,6 +85,7 @@ namespace WebCore {
     M(Media) \
     M(MediaCaptureSamples) \
     M(MediaQueries) \
+    M(MediaPromise) \
     M(MediaSource) \
     M(MediaStream) \
     M(MediaSourceSamples) \
