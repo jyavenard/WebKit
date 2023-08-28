@@ -40,14 +40,22 @@ public:
     WTF_EXPORT_PRIVATE static Ref<SuspendableWorkQueue> create(const char* name, QOS = QOS::Default, ShouldLog = ShouldLog::No);
     WTF_EXPORT_PRIVATE void suspend(Function<void()>&& suspendFunction, CompletionHandler<void()>&& suspensionCompletionHandler);
     WTF_EXPORT_PRIVATE void resume();
-    WTF_EXPORT_PRIVATE void dispatch(Function<void()>&&) final;
+    void dispatch(Function<void()>&& function) final
+    {
+        RELEASE_ASSERT(function);
+        // WorkQueue will protect this in dispatch().
+        dispatchInternal([this, function = WTFMove(function)] {
+            suspendIfNeeded();
+            function();
+        });
+    }
     WTF_EXPORT_PRIVATE void dispatchAfter(Seconds, Function<void()>&&) final;
     WTF_EXPORT_PRIVATE void dispatchSync(Function<void()>&&) final;
 
 private:
     SuspendableWorkQueue(const char* name, QOS, ShouldLog);
     void invokeAllSuspensionCompletionHandlers() WTF_REQUIRES_LOCK(m_suspensionLock);
-    void suspendIfNeeded();
+    WTF_EXPORT_PRIVATE void suspendIfNeeded();
 #if USE(COCOA_EVENT_LOOP)
     using WorkQueue::dispatchQueue;
 #else

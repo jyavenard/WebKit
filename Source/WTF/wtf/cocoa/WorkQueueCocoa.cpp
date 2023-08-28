@@ -49,7 +49,7 @@ template<typename T> static void dispatchWorkItem(void* dispatchContext)
     delete item;
 }
 
-void WorkQueueBase::dispatch(Function<void()>&& function)
+void WorkQueueBase::dispatchInternal(Function<void()>&& function)
 {
     dispatch_async_f(m_dispatchQueue.get(), new DispatchWorkItem { Ref { *this }, WTFMove(function) }, dispatchWorkItem<DispatchWorkItem>);
 }

@@ -94,16 +94,6 @@ void SuspendableWorkQueue::resume()
     m_state = State::Running;
 }
 
-void SuspendableWorkQueue::dispatch(Function<void()>&& function)
-{
-    RELEASE_ASSERT(function);
-    // WorkQueue will protect this in dispatch().
-    WorkQueue::dispatch([this, function = WTFMove(function)] {
-        suspendIfNeeded();
-        function();
-    });
-}
-
 void SuspendableWorkQueue::dispatchAfter(Seconds seconds, Function<void()>&& function)
 {
     RELEASE_ASSERT(function);

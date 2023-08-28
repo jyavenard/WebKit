@@ -63,7 +63,7 @@ void WorkQueueBase::platformInvalidate()
     }
 }
 
-void WorkQueueBase::dispatch(Function<void()>&& function)
+void WorkQueueBase::dispatchInternal(Function<void()>&& function)
 {
     m_runLoop->dispatch([protectedThis = Ref { *this }, function = WTFMove(function)] {
         function();
