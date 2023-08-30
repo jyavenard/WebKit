@@ -60,7 +60,7 @@ protected:
         Serial,
         Concurrent
     };
-    WorkQueueBase(const char* name, Type, QOS);
+    WTF_EXPORT_PRIVATE WorkQueueBase(const char* name, Type, QOS);
 #if USE(COCOA_EVENT_LOOP)
     explicit WorkQueueBase(OSObjectPtr<dispatch_queue_t>&&);
 #else
@@ -75,9 +75,7 @@ protected:
     OSObjectPtr<dispatch_queue_t> m_dispatchQueue;
 #else
     RunLoop* m_runLoop;
-#if ASSERT_ENABLED
     uint32_t m_threadID { 0 };
-#endif
 #endif
 };
 
@@ -94,10 +92,8 @@ public:
 
     WTF_EXPORT_PRIVATE static Ref<WorkQueue> create(const char* name, QOS = QOS::Default);
     void dispatch(Function<void()>&& function) override { dispatchInternal(WTFMove(function)); }
-#if ASSERT_ENABLED
-    void assertIsCurrent() const override { WTF::assertIsCurrent(threadLikeAssertion()); }
+    bool isCurrent() const override { return threadLikeAssertion().isCurrent(); }
     WTF_EXPORT_PRIVATE ThreadLikeAssertion threadLikeAssertion() const; // public as used in API tests.
-#endif
 #if !USE(COCOA_EVENT_LOOP)
     RunLoop& runLoop() const { return *m_runLoop; }
 #endif

@@ -45,8 +45,9 @@ protected:
 
 class WTF_CAPABILITY("is current") SerialFunctionDispatcher : public FunctionDispatcher {
 public:
+    WTF_EXPORT_PRIVATE virtual bool isCurrent() const = 0;
 #if ASSERT_ENABLED
-    WTF_EXPORT_PRIVATE virtual void assertIsCurrent() const = 0;
+    void assertIsCurrent() const { ASSERT(isCurrent()); }
 #endif
 };
 

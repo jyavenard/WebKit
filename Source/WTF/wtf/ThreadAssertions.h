@@ -99,9 +99,9 @@ public:
     ThreadLikeAssertion& operator=(ThreadLikeAssertion&&);
 
     void reset() { *this = currentThreadLike; }
+    bool isCurrent() const;
 private:
     constexpr ThreadLikeAssertion(uint32_t uid);
-    bool isCurrent() const;
 #if ASSERT_ENABLED
     uint32_t m_uid;
 #endif

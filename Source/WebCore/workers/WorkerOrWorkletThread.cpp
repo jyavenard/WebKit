@@ -88,12 +88,10 @@ void WorkerOrWorkletThread::dispatch(Function<void()>&& func)
     });
 }
 
-#if ASSERT_ENABLED
-void WorkerOrWorkletThread::assertIsCurrent() const
+bool WorkerOrWorkletThread::isCurrent() const
 {
-    return WTF::assertIsCurrent(*thread());
+    return thread() ? thread()->threadLikeAssertion().isCurrent() : false;
 }
-#endif
 
 void WorkerOrWorkletThread::startRunningDebuggerTasks()
 {
