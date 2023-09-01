@@ -49,8 +49,8 @@ public:
     // Using nullptr as queue submits the result to the main queue.
     // FIXME: We should add WorkQueue::main() instead.
     // Can be used with either a concurrent WorkQueue or a serial one.
-    void read(size_t offset, size_t, WTF::WorkQueueBase&, Function<void(Data&, int error)>&&);
-    void write(size_t offset, const Data&, WTF::WorkQueueBase&, Function<void(int error)>&&);
+    void read(size_t offset, size_t, WTF::WorkDispatcher&, Function<void(Data&, int error)>&&);
+    void write(size_t offset, const Data&, WTF::WorkDispatcher&, Function<void(int error)>&&);
 
     const String& path() const { return m_path; }
     Type type() const { return m_type; }

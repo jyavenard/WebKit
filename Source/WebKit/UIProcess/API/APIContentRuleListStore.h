@@ -34,7 +34,7 @@ class FragmentedSharedBuffer;
 }
 
 namespace WTF {
-class ConcurrentWorkQueue;
+class WorkDispatcher;
 class WorkQueue;
 }
 
@@ -75,9 +75,9 @@ public:
 
 private:
     WTF::String defaultStorePath();
-    
+
     const WTF::String m_storePath;
-    Ref<WTF::ConcurrentWorkQueue> m_compileQueue;
+    Ref<WTF::WorkDispatcher> m_compileQueue;
     Ref<WTF::WorkQueue> m_readQueue;
     Ref<WTF::WorkQueue> m_removeQueue;
 #endif // ENABLE(CONTENT_EXTENSIONS)

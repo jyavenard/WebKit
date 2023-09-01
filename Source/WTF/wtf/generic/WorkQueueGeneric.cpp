@@ -1,8 +1,8 @@
 /*
+ * Copyright (C) 2010-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2016 Konstantin Tokavev <annulen@yandex.ru>
  * Copyright (C) 2016 Yusuke Suzuki <utatane.tea@gmail.com>
  * Copyright (C) 2011 Igalia S.L.
- * Copyright (C) 2010 Apple Inc. All rights reserved.
  * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,12 +34,12 @@
 
 namespace WTF {
 
-WorkQueueBase::WorkQueueBase(RunLoop& runLoop)
+WorkDispatcher::WorkDispatcher(RunLoop& runLoop)
     : m_runLoop(&runLoop)
 {
 }
 
-void WorkQueueBase::platformInitialize(const char* name, Type, QOS qos)
+void WorkDispatcher::platformInitialize(const char* name, Type, QOS qos)
 {
     m_runLoop = RunLoop::create(name, ThreadType::Unknown, qos).ptr();
 #if ASSERT_ENABLED
@@ -52,7 +52,7 @@ void WorkQueueBase::platformInitialize(const char* name, Type, QOS qos)
 #endif
 }
 
-void WorkQueueBase::platformInvalidate()
+void WorkDispatcher::platformInvalidate()
 {
     if (m_runLoop) {
         Ref<RunLoop> protector(*m_runLoop);
@@ -63,14 +63,14 @@ void WorkQueueBase::platformInvalidate()
     }
 }
 
-void WorkQueueBase::dispatch(Function<void()>&& function)
+void WorkDispatcher::dispatch(Function<void()>&& function)
 {
     m_runLoop->dispatch([protectedThis = Ref { *this }, function = WTFMove(function)] {
         function();
     });
 }
 
-void WorkQueueBase::dispatchAfter(Seconds delay, Function<void()>&& function)
+void WorkDispatcher::dispatchAfter(Seconds delay, Function<void()>&& function)
 {
     m_runLoop->dispatchAfter(delay, [protectedThis = Ref { *this }, function = WTFMove(function)] {
         function();
@@ -78,7 +78,7 @@ void WorkQueueBase::dispatchAfter(Seconds delay, Function<void()>&& function)
 }
 
 WorkQueue::WorkQueue(RunLoop& loop)
-    : WorkQueueBase(loop)
+    : WorkDispatcher(loop)
 {
 }
 

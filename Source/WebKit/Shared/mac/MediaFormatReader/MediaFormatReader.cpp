@@ -112,9 +112,9 @@ void MediaFormatReader::startOnMainThread(MTPluginByteSourceRef byteSource)
     });
 }
 
-static ConcurrentWorkQueue& readerQueue()
+static WorkDispatcher& readerQueue()
 {
-    static NeverDestroyed<Ref<ConcurrentWorkQueue>> queue = ConcurrentWorkQueue::create("WebKit::MediaFormatReader Queue");
+    static NeverDestroyed<Ref<WorkDispatcher>> queue = WorkDispatcher::create("WebKit::MediaFormatReader Queue");
     return queue.get();
 }
 

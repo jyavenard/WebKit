@@ -55,7 +55,7 @@ IOChannel::~IOChannel()
     FileSystem::closeFile(m_fileDescriptor);
 }
 
-void IOChannel::read(size_t offset, size_t size, WTF::WorkQueueBase& queue, Function<void(Data&, int error)>&& completionHandler)
+void IOChannel::read(size_t offset, size_t size, WTF::WorkDispatcher& queue, Function<void(Data&, int error)>&& completionHandler)
 {
     queue.dispatch([this, protectedThis = Ref { *this }, offset, size, completionHandler = WTFMove(completionHandler)] {
         auto fileSize = FileSystem::fileSize(m_fileDescriptor);
@@ -75,7 +75,7 @@ void IOChannel::read(size_t offset, size_t size, WTF::WorkQueueBase& queue, Func
     });
 }
 
-void IOChannel::write(size_t offset, const Data& data, WTF::WorkQueueBase& queue, Function<void(int error)>&& completionHandler)
+void IOChannel::write(size_t offset, const Data& data, WTF::WorkDispatcher& queue, Function<void(int error)>&& completionHandler)
 {
     queue.dispatch([this, protectedThis = Ref { *this }, offset, data, completionHandler = WTFMove(completionHandler)] {
         FileSystem::seekFile(m_fileDescriptor, offset, FileSystem::FileSeekOrigin::Beginning);

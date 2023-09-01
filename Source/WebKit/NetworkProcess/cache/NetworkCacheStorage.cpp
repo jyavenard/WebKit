@@ -85,7 +85,7 @@ public:
     const uint64_t ordinal;
     unsigned priority;
     RetrieveCompletionHandler completionHandler;
-    
+
     std::unique_ptr<Record> resultRecord;
     SHA1::Digest expectedBodyHash;
     BlobStorage::Blob resultBodyBlob;
@@ -270,8 +270,8 @@ Storage::Storage(const String& baseDirectoryPath, Mode mode, Salt salt, size_t c
     , m_capacity(capacity)
     , m_readOperationTimeoutTimer(*this, &Storage::cancelAllReadOperations)
     , m_writeOperationDispatchTimer(*this, &Storage::dispatchPendingWriteOperations)
-    , m_ioQueue(ConcurrentWorkQueue::create("com.apple.WebKit.Cache.Storage"))
-    , m_backgroundIOQueue(ConcurrentWorkQueue::create("com.apple.WebKit.Cache.Storage.background", WorkQueue::QOS::Background))
+    , m_ioQueue(WorkDispatcher::create("com.apple.WebKit.Cache.Storage"))
+    , m_backgroundIOQueue(WorkDispatcher::create("com.apple.WebKit.Cache.Storage.background", WorkQueue::QOS::Background))
     , m_serialBackgroundIOQueue(WorkQueue::create("com.apple.WebKit.Cache.Storage.serialBackground", WorkQueue::QOS::Background))
     , m_blobStorage(makeBlobDirectoryPath(baseDirectoryPath), m_salt)
 {
@@ -467,7 +467,7 @@ static WARN_UNUSED_RETURN bool decodeRecordMetaData(RecordMetaData& metaData, co
     bool success = false;
     fileData.apply([&metaData, &success](std::span<const uint8_t> span) {
         WTF::Persistence::Decoder decoder(span);
-        
+
         std::optional<unsigned> cacheStorageVersion;
         decoder >> cacheStorageVersion;
         if (!cacheStorageVersion)
@@ -792,7 +792,7 @@ void Storage::finishReadOperation(ReadOperation& readOperation)
 
         if (m_activeReadOperations.isEmpty())
             m_readOperationTimeoutTimer.stop();
-        
+
         dispatchPendingReadOperations();
 
         LOG(NetworkCacheStorage, "(NetworkProcess) read complete success=%d", success);

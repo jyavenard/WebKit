@@ -70,7 +70,7 @@ IOChannel::~IOChannel()
     RELEASE_ASSERT(!m_wasDeleted.exchange(true));
 }
 
-void IOChannel::read(size_t offset, size_t size, WTF::WorkQueueBase& queue, Function<void(Data&, int error)>&& completionHandler)
+void IOChannel::read(size_t offset, size_t size, WTF::WorkDispatcher& queue, Function<void(Data&, int error)>&& completionHandler)
 {
     RefPtr<IOChannel> protectedThis(this);
     if (!m_inputStream) {
@@ -110,7 +110,7 @@ void IOChannel::read(size_t offset, size_t size, WTF::WorkQueueBase& queue, Func
     }, ThreadType::Unknown, m_qos)->detach();
 }
 
-void IOChannel::write(size_t offset, const Data& data, WTF::WorkQueueBase& queue, Function<void(int error)>&& completionHandler)
+void IOChannel::write(size_t offset, const Data& data, WTF::WorkDispatcher& queue, Function<void(int error)>&& completionHandler)
 {
     RefPtr<IOChannel> protectedThis(this);
     if (!m_outputStream) {

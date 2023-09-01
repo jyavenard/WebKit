@@ -266,7 +266,7 @@ void FEConvolveMatrixSoftwareApplier::setInteriorPixels(PaintingData& paintingDa
 
     int chunkCount = (clipBottom + stride - 1) / stride;
 
-    ConcurrentWorkQueue::apply(chunkCount, [&](size_t index) {
+    WorkDispatcher::concurrentApply(chunkCount, [&](size_t index) {
         int yStart = stride * index;
         int yEnd = std::min<int>(yStart + stride, clipBottom);
 

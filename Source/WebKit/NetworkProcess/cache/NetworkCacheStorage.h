@@ -154,8 +154,8 @@ private:
     void updateFileModificationTime(String&& path);
     void removeFromPendingWriteOperations(const Key&);
 
-    ConcurrentWorkQueue& ioQueue() { return m_ioQueue.get(); }
-    ConcurrentWorkQueue& backgroundIOQueue() { return m_backgroundIOQueue.get(); }
+    WorkDispatcher& ioQueue() { return m_ioQueue.get(); }
+    WorkDispatcher& backgroundIOQueue() { return m_backgroundIOQueue.get(); }
     WorkQueue& serialBackgroundIOQueue() { return m_serialBackgroundIOQueue.get(); }
 
     bool mayContain(const Key&) const;
@@ -171,7 +171,7 @@ private:
 
     const String m_basePath;
     const String m_recordsPath;
-    
+
     const Mode m_mode;
     const Salt m_salt;
 
@@ -202,8 +202,8 @@ private:
     struct TraverseOperation;
     HashSet<std::unique_ptr<TraverseOperation>> m_activeTraverseOperations;
 
-    Ref<ConcurrentWorkQueue> m_ioQueue;
-    Ref<ConcurrentWorkQueue> m_backgroundIOQueue;
+    Ref<WorkDispatcher> m_ioQueue;
+    Ref<WorkDispatcher> m_backgroundIOQueue;
     Ref<WorkQueue> m_serialBackgroundIOQueue;
 
     BlobStorage m_blobStorage;

@@ -40,38 +40,23 @@
 
 namespace WTF {
 
-WorkQueue& WorkQueue::main()
-{
-    static NeverDestroyed<RefPtr<WorkQueue>> mainWorkQueue;
-    static std::once_flag onceKey;
-    std::call_once(onceKey, [&] {
-        mainWorkQueue.get() = constructMainWorkQueue();
-    });
-    return *mainWorkQueue.get();
-}
-
-WorkQueueBase::WorkQueueBase(const char* name, Type type, QOS qos)
+WorkDispatcher::WorkDispatcher(const char* name, Type type, QOS qos)
 {
     platformInitialize(name, type, qos);
 }
 
-WorkQueueBase::~WorkQueueBase()
+WorkDispatcher::~WorkDispatcher()
 {
     platformInvalidate();
 }
 
-Ref<WorkQueue> WorkQueue::create(const char* name, QOS qos)
+Ref<WorkDispatcher> WorkDispatcher::create(const char* name, QOS qos)
 {
-    return adoptRef(*new WorkQueue(name, qos));
-}
-
-Ref<ConcurrentWorkQueue> ConcurrentWorkQueue::create(const char* name, QOS qos)
-{
-    return adoptRef(*new ConcurrentWorkQueue(name, qos));
+    return adoptRef(*new WorkDispatcher(name, Type::Concurrent, qos));
 }
 
 #if !PLATFORM(COCOA)
-void WorkQueueBase::dispatchSync(Function<void()>&& function)
+void WorkDispatcher::dispatchSync(Function<void()>&& function)
 {
     BinarySemaphore semaphore;
     dispatch([&semaphore, function = WTFMove(function)]() mutable {
@@ -81,12 +66,12 @@ void WorkQueueBase::dispatchSync(Function<void()>&& function)
     semaphore.wait();
 }
 
-void WorkQueueBase::dispatchWithQOS(Function<void()>&& function, QOS)
+void WorkDispatcher::dispatchWithQOS(Function<void()>&& function, QOS)
 {
     dispatch(WTFMove(function));
 }
 
-void ConcurrentWorkQueue::apply(size_t iterations, WTF::Function<void(size_t index)>&& function)
+void WorkDispatcher::concurrentApply(size_t iterations, WTF::Function<void(size_t index)>&& function)
 {
     if (!iterations)
         return;
@@ -185,4 +170,24 @@ void ConcurrentWorkQueue::apply(size_t iterations, WTF::Function<void(size_t ind
 }
 #endif
 
+WorkQueue& WorkQueue::main()
+{
+    static NeverDestroyed<RefPtr<WorkQueue>> mainWorkQueue;
+    static std::once_flag onceKey;
+    std::call_once(onceKey, [&] {
+        mainWorkQueue.get() = constructMainWorkQueue();
+    });
+    return *mainWorkQueue.get();
 }
+
+Ref<WorkQueue> WorkQueue::create(const char* name, QOS qos)
+{
+    return adoptRef(*new WorkQueue(name, qos));
+}
+
+void WorkQueue::dispatch(Function<void ()>&& function)
+{
+    WorkDispatcher::dispatch(WTFMove(function));
+}
+
+} // namespace WTF

@@ -35,15 +35,12 @@ namespace WTF {
 
 class FunctionDispatcher {
 public:
-    WTF_EXPORT_PRIVATE virtual ~FunctionDispatcher();
+    virtual ~FunctionDispatcher() = default;
 
-    virtual void dispatch(Function<void ()>&&) = 0;
-
-protected:
-    WTF_EXPORT_PRIVATE FunctionDispatcher();
+    WTF_EXPORT_PRIVATE virtual void dispatch(Function<void ()>&&) = 0;
 };
 
-class WTF_CAPABILITY("is current") SerialFunctionDispatcher : public FunctionDispatcher {
+class WTF_CAPABILITY("is current") SerialFunctionDispatcher : public virtual FunctionDispatcher {
 public:
 #if ASSERT_ENABLED
     WTF_EXPORT_PRIVATE virtual void assertIsCurrent() const = 0;
