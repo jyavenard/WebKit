@@ -117,6 +117,11 @@ void RemoteRealtimeMediaSourceProxy::getPhotoCapabilities(WebCore::RealtimeMedia
     m_connection->sendWithAsyncReply(Messages::UserMediaCaptureManagerProxy::GetPhotoCapabilities(identifier()), WTFMove(handler));
 }
 
+void RemoteRealtimeMediaSourceProxy::getPhotoSettings(WebCore::RealtimeMediaSource::PhotoSettingsHandler&& handler)
+{
+    m_connection->sendWithAsyncReply(Messages::UserMediaCaptureManagerProxy::GetPhotoSettings(identifier()), WTFMove(handler));
+}
+
 void RemoteRealtimeMediaSourceProxy::applyConstraintsSucceeded()
 {
     auto callback = m_pendingApplyConstraintsCallbacks.takeFirst();

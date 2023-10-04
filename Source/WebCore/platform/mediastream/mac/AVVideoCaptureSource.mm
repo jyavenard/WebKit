@@ -28,6 +28,7 @@
 
 #if ENABLE(MEDIA_STREAM) && USE(AVFOUNDATION)
 
+#import "FillLightMode.h"
 #import "ImageBuffer.h"
 #import "ImageTransferSessionVT.h"
 #import "IntRect.h"
@@ -465,6 +466,45 @@ void AVVideoCaptureSource::getPhotoCapabilities(PhotoCapabilitiesHandler&& compl
     m_photoCapabilities = WTFMove(photoCapabilities);
 
     completion({ *m_photoCapabilities });
+}
+
+static FillLightMode toFillLightMode(AVCaptureTorchMode mode)
+{
+    switch (mode) {
+    case AVCaptureTorchModeOff:
+        return FillLightMode::Off;
+        break;
+    case AVCaptureTorchModeOn:
+        return FillLightMode::Flash;
+        break;
+    case AVCaptureTorchModeAuto:
+        return FillLightMode::Auto;
+        break;
+    }
+
+    ASSERT_NOT_REACHED();
+    return FillLightMode::Auto;
+}
+
+void AVVideoCaptureSource::getPhotoSettings(PhotoSettingsHandler&& completion)
+{
+    if (m_photoSettings) {
+        completion({ *m_photoSettings });
+        return;
+    }
+
+    PhotoSettings photoSettings;
+    auto settings = this->settings();
+
+    photoSettings.imageHeight = settings.height();
+    photoSettings.imageWidth = settings.width();
+
+    if ([device() hasTorch])
+        photoSettings.fillLightMode = { toFillLightMode([device() torchMode]) };
+
+    m_photoSettings = WTFMove(photoSettings);
+
+    completion({ *m_photoSettings });
 }
 
 NSMutableArray* AVVideoCaptureSource::cameraCaptureDeviceTypes()

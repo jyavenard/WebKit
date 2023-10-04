@@ -194,6 +194,11 @@ public:
         m_source->getPhotoCapabilities(WTFMove(handler));
     }
 
+    void getPhotoSettings(GetPhotoSettingsCallback&& handler)
+    {
+        m_source->getPhotoSettings(WTFMove(handler));
+    }
+
 private:
     void sourceStopped() final {
         m_connection->send(Messages::UserMediaCaptureManager::SourceStopped(m_id, m_source->captureDidFail()), 0);
@@ -534,6 +539,16 @@ void UserMediaCaptureManagerProxy::getPhotoCapabilities(RealtimeMediaSourceIdent
     }
 
     handler(PhotoCapabilitiesOrError("Device not available"_s));
+}
+
+void UserMediaCaptureManagerProxy::getPhotoSettings(RealtimeMediaSourceIdentifier sourceID, GetPhotoSettingsCallback&& handler)
+{
+    if (auto* proxy = m_proxies.get(sourceID)) {
+        proxy->getPhotoSettings(WTFMove(handler));
+        return;
+    }
+
+    handler(PhotoSettingsOrError("Device not available"_s));
 }
 
 void UserMediaCaptureManagerProxy::endProducingData(RealtimeMediaSourceIdentifier sourceID)

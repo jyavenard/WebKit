@@ -188,6 +188,11 @@ void MediaStreamTrackPrivate::getPhotoCapabilities(RealtimeMediaSource::PhotoCap
     m_source->getPhotoCapabilities(WTFMove(completion));
 }
 
+void MediaStreamTrackPrivate::getPhotoSettings(RealtimeMediaSource::PhotoSettingsHandler&& completion)
+{
+    m_source->getPhotoSettings(WTFMove(completion));
+}
+
 void MediaStreamTrackPrivate::applyConstraints(const MediaConstraints& constraints, RealtimeMediaSource::ApplyConstraintsHandler&& completionHandler)
 {
     m_source->applyConstraints(constraints, WTFMove(completionHandler));

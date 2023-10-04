@@ -1460,6 +1460,11 @@ void RealtimeMediaSource::getPhotoCapabilities(PhotoCapabilitiesHandler&& comple
     completion(PhotoCapabilitiesOrError("Not supported"_s));
 }
 
+void RealtimeMediaSource::getPhotoSettings(PhotoSettingsHandler&& completion)
+{
+    completion(PhotoSettingsOrError("Not supported"_s));
+}
+
 RealtimeMediaSource::Observer::~Observer()
 {
 }

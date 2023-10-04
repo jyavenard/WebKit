@@ -33,6 +33,7 @@
 
 #if ENABLE(MEDIA_STREAM)
 #include "CaptureDevice.h"
+#include "FillLightMode.h"
 #include "GraphicsContext.h"
 #include "ImageBuffer.h"
 #include "IntRect.h"
@@ -202,6 +203,29 @@ void MockRealtimeVideoSource::getPhotoCapabilities(PhotoCapabilitiesHandler&& co
     completion({ *m_photoCapabilities });
 }
 
+void MockRealtimeVideoSource::getPhotoSettings(PhotoSettingsHandler&& completion)
+{
+    if (m_photoSettings) {
+        completion({ *m_photoSettings });
+        return;
+    }
+
+    PhotoSettings photoSettings;
+    auto settings = this->settings();
+
+    photoSettings.imageHeight = settings.height();
+    photoSettings.imageWidth = settings.width();
+
+    if (std::get<MockCameraProperties>(m_device.properties).hasTorch) {
+        auto fillLightMode = torch() ? FillLightMode::Flash : FillLightMode::Off;
+        photoSettings.fillLightMode = { fillLightMode };
+    }
+
+    m_photoSettings = WTFMove(photoSettings);
+
+    completion({ *m_photoSettings });
+}
+
 static bool isZoomSupported(const Vector<VideoPreset>& presets)
 {
     return anyOf(presets, [](auto& preset) {
@@ -300,6 +324,8 @@ void MockRealtimeVideoSource::settingsDidChange(OptionSet<RealtimeMediaSourceSet
         m_statsFontSize = m_baseFontSize * .5;
         m_imageBuffer = nullptr;
     }
+    if (settings.contains(RealtimeMediaSourceSettings::Flag::Torch))
+        m_photoSettings = std::nullopt;
 }
 
 void MockRealtimeVideoSource::startCaptureTimer()

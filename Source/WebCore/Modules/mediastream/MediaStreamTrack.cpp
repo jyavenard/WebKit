@@ -39,6 +39,7 @@
 #include "JSMeteringMode.h"
 #include "JSOverconstrainedError.h"
 #include "JSPhotoCapabilities.h"
+#include "JSPhotoSettings.h"
 #include "LocalFrame.h"
 #include "Logging.h"
 #include "MediaConstraints.h"
@@ -325,6 +326,22 @@ void MediaStreamTrack::getPhotoCapabilities(DOMPromiseDeferred<IDLDictionary<Pho
         }
 
         promise.resolve(WTFMove(*result.capabilities));
+    });
+}
+
+void MediaStreamTrack::getPhotoSettings(DOMPromiseDeferred<IDLDictionary<PhotoSettings>>&& promise) const
+{
+    m_private->getPhotoSettings([protectedThis = Ref { *this }, promise = WTFMove(promise)](auto&& result) mutable {
+        if (!result) {
+            // https://w3c.github.io/mediacapture-image/#ref-for-dom-imagecapture-getphotosettings②
+            // If the data cannot be gathered for any reason (for example, the MediaStreamTrack being ended
+            // asynchronously), then reject p with a new DOMException whose name is OperationError, and
+            // abort these steps.
+            promise.reject(Exception { OperationError, WTFMove(result.errorMessage) });
+            return;
+        }
+
+        promise.resolve(WTFMove(*result.settings));
     });
 }
 
