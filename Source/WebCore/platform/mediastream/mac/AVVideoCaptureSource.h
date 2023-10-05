@@ -85,7 +85,7 @@ private:
     const RealtimeMediaSourceCapabilities& capabilities() final;
     const RealtimeMediaSourceSettings& settings() final;
     void getPhotoCapabilities(PhotoCapabilitiesHandler&&) final;
-    void getPhotoSettings(PhotoSettingsHandler&&) final;
+    Ref<PhotoSettingsPromise> getPhotoSettings() final;
     double facingModeFitnessScoreAdjustment() const final;
     void startProducingData() final;
     void stopProducingData() final;

@@ -49,6 +49,7 @@
 #include "VideoFrameTimeMetadata.h"
 #include <wtf/CheckedPtr.h>
 #include <wtf/CompletionHandler.h>
+#include <wtf/Forward.h>
 #include <wtf/Lock.h>
 #include <wtf/LoggerHelper.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -81,7 +82,6 @@ enum class VideoFrameRotation : uint16_t;
 struct CaptureSourceError;
 struct CaptureSourceOrError;
 struct PhotoCapabilitiesOrError;
-struct PhotoSettingsOrError;
 struct VideoFrameAdaptor;
 
 class WEBCORE_EXPORT RealtimeMediaSource
@@ -214,8 +214,8 @@ public:
     using PhotoCapabilitiesHandler = CompletionHandler<void(PhotoCapabilitiesOrError&&)>;
     virtual void getPhotoCapabilities(PhotoCapabilitiesHandler&&);
 
-    using PhotoSettingsHandler = CompletionHandler<void(PhotoSettingsOrError&&)>;
-    virtual void getPhotoSettings(PhotoSettingsHandler&&);
+    using PhotoSettingsPromise = NativePromise<PhotoSettings, String>;
+    virtual Ref<PhotoSettingsPromise> getPhotoSettings();
 
     struct ApplyConstraintsError {
         String badConstraint;
@@ -418,25 +418,6 @@ struct PhotoCapabilitiesOrError {
     operator bool() const { return capabilities.has_value(); }
 
     std::optional<PhotoCapabilities> capabilities;
-    String errorMessage;
-};
-
-struct PhotoSettingsOrError {
-    PhotoSettingsOrError() = default;
-    PhotoSettingsOrError(std::optional<PhotoSettings>&& settings, String&& errorMessage)
-        : settings(WTFMove(settings))
-        , errorMessage(WTFMove(errorMessage))
-    { }
-    PhotoSettingsOrError(PhotoSettings& settings)
-        : settings({ settings })
-    { }
-    explicit PhotoSettingsOrError(String&& errorMessage)
-        : errorMessage(WTFMove(errorMessage))
-    { }
-
-    operator bool() const { return settings.has_value(); }
-
-    std::optional<PhotoSettings> settings;
     String errorMessage;
 };
 

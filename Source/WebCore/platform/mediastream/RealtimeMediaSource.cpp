@@ -45,6 +45,7 @@
 #include <wtf/CompletionHandler.h>
 #include <wtf/MainThread.h>
 #include <wtf/MediaTime.h>
+#include <wtf/NativePromise.h>
 #include <wtf/UUID.h>
 #include <wtf/text/StringHash.h>
 
@@ -1460,9 +1461,9 @@ void RealtimeMediaSource::getPhotoCapabilities(PhotoCapabilitiesHandler&& comple
     completion(PhotoCapabilitiesOrError("Not supported"_s));
 }
 
-void RealtimeMediaSource::getPhotoSettings(PhotoSettingsHandler&& completion)
+auto RealtimeMediaSource::getPhotoSettings() -> Ref<PhotoSettingsPromise>
 {
-    completion(PhotoSettingsOrError("Not supported"_s));
+    return PhotoSettingsPromise::createAndReject("Not supported"_s);
 }
 
 RealtimeMediaSource::Observer::~Observer()

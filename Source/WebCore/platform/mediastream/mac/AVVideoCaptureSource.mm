@@ -47,6 +47,7 @@
 #import <objc/runtime.h>
 #import <pal/avfoundation/MediaTimeAVFoundation.h>
 #import <pal/spi/cocoa/AVFoundationSPI.h>
+#import <wtf/NativePromise.h>
 #import <wtf/Scope.h>
 
 #import "CoreVideoSoftLink.h"
@@ -486,12 +487,10 @@ static FillLightMode toFillLightMode(AVCaptureTorchMode mode)
     return FillLightMode::Auto;
 }
 
-void AVVideoCaptureSource::getPhotoSettings(PhotoSettingsHandler&& completion)
+auto AVVideoCaptureSource::getPhotoSettings() -> Ref<PhotoSettingsPromise>
 {
-    if (m_photoSettings) {
-        completion({ *m_photoSettings });
-        return;
-    }
+    if (m_photoSettings)
+        return PhotoSettingsPromise::createAndResolve(*m_photoSettings);
 
     PhotoSettings photoSettings;
     auto settings = this->settings();
@@ -504,7 +503,7 @@ void AVVideoCaptureSource::getPhotoSettings(PhotoSettingsHandler&& completion)
 
     m_photoSettings = WTFMove(photoSettings);
 
-    completion({ *m_photoSettings });
+    return PhotoSettingsPromise::createAndResolve(*m_photoSettings);
 }
 
 NSMutableArray* AVVideoCaptureSource::cameraCaptureDeviceTypes()

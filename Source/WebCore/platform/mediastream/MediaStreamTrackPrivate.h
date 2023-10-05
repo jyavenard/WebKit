@@ -111,7 +111,7 @@ public:
     const RealtimeMediaSourceCapabilities& capabilities() const;
 
     void getPhotoCapabilities(RealtimeMediaSource::PhotoCapabilitiesHandler&&);
-    void getPhotoSettings(RealtimeMediaSource::PhotoSettingsHandler&&);
+    Ref<RealtimeMediaSource::RealtimeMediaSource::PhotoSettingsPromise> getPhotoSettings();
 
     void applyConstraints(const MediaConstraints&, RealtimeMediaSource::ApplyConstraintsHandler&&);
 

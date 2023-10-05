@@ -74,7 +74,7 @@ protected:
     const WebCore::RealtimeMediaSourceSettings& settings() final { return m_settings; }
     const WebCore::RealtimeMediaSourceCapabilities& capabilities() final { return m_capabilities; }
     void getPhotoCapabilities(PhotoCapabilitiesHandler&&) final;
-    void getPhotoSettings(PhotoSettingsHandler&&) final;
+    Ref<PhotoSettingsPromise> getPhotoSettings() final;
 
 private:
     // RealtimeMediaSource

@@ -5891,13 +5891,6 @@ header: <WebCore/RealtimeMediaSource.h>
     String errorMessage;
 };
 
-header: <WebCore/RealtimeMediaSource.h>
-[CustomHeader] struct WebCore::PhotoSettingsOrError {
-    std::optional<WebCore::PhotoSettings> settings;
-    String errorMessage;
-};
-#endif
-
 header: <WebCore/WebGPUTextureAspect.h>
 enum class WebCore::WebGPU::TextureAspect : uint8_t {
     All,

@@ -59,6 +59,7 @@
 #include "WebAudioSourceProvider.h"
 #include <wtf/CompletionHandler.h>
 #include <wtf/IsoMallocInlines.h>
+#include <wtf/NativePromise.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
@@ -331,17 +332,17 @@ void MediaStreamTrack::getPhotoCapabilities(DOMPromiseDeferred<IDLDictionary<Pho
 
 void MediaStreamTrack::getPhotoSettings(DOMPromiseDeferred<IDLDictionary<PhotoSettings>>&& promise) const
 {
-    m_private->getPhotoSettings([protectedThis = Ref { *this }, promise = WTFMove(promise)](auto&& result) mutable {
+    m_private->getPhotoSettings()->whenSettled(RunLoop::main(), [protectedThis = Ref { *this }, promise = WTFMove(promise)] (RealtimeMediaSource::PhotoSettingsPromise::Result&& result) mutable {
         if (!result) {
             // https://w3c.github.io/mediacapture-image/#ref-for-dom-imagecapture-getphotosettings②
             // If the data cannot be gathered for any reason (for example, the MediaStreamTrack being ended
             // asynchronously), then reject p with a new DOMException whose name is OperationError, and
             // abort these steps.
-            promise.reject(Exception { OperationError, WTFMove(result.errorMessage) });
+            promise.reject(Exception { OperationError, WTFMove(result.error()) });
             return;
         }
 
-        promise.resolve(WTFMove(*result.settings));
+        promise.resolve(WTFMove(result.value()));
     });
 }
 

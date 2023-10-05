@@ -45,6 +45,7 @@
 #include "RealtimeMediaSourceSettings.h"
 #include "VideoFrame.h"
 #include <math.h>
+#include <wtf/NativePromise.h>
 #include <wtf/UUID.h>
 #include <wtf/text/StringConcatenateNumbers.h>
 
@@ -203,12 +204,10 @@ void MockRealtimeVideoSource::getPhotoCapabilities(PhotoCapabilitiesHandler&& co
     completion({ *m_photoCapabilities });
 }
 
-void MockRealtimeVideoSource::getPhotoSettings(PhotoSettingsHandler&& completion)
+auto MockRealtimeVideoSource::getPhotoSettings() -> Ref<PhotoSettingsPromise>
 {
-    if (m_photoSettings) {
-        completion({ *m_photoSettings });
-        return;
-    }
+    if (m_photoSettings)
+        return PhotoSettingsPromise::createAndResolve(*m_photoSettings);
 
     PhotoSettings photoSettings;
     auto settings = this->settings();
@@ -223,7 +222,7 @@ void MockRealtimeVideoSource::getPhotoSettings(PhotoSettingsHandler&& completion
 
     m_photoSettings = WTFMove(photoSettings);
 
-    completion({ *m_photoSettings });
+    return PhotoSettingsPromise::createAndResolve(*m_photoSettings);
 }
 
 static bool isZoomSupported(const Vector<VideoPreset>& presets)

@@ -75,7 +75,7 @@ private:
     const RealtimeMediaSourceCapabilities& capabilities() final;
     const RealtimeMediaSourceSettings& settings() final;
     void getPhotoCapabilities(PhotoCapabilitiesHandler&&) final;
-    void getPhotoSettings(PhotoSettingsHandler&&) final;
+    Ref<PhotoSettingsPromise> getPhotoSettings() final;
 
     void startProducingData() override;
     void stopProducingData() override;

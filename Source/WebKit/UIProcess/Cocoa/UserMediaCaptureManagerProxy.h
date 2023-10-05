@@ -100,7 +100,7 @@ private:
     using GetPhotoCapabilitiesCallback = CompletionHandler<void(WebCore::PhotoCapabilitiesOrError&&)>;
     void getPhotoCapabilities(WebCore::RealtimeMediaSourceIdentifier, GetPhotoCapabilitiesCallback&&);
 
-    using GetPhotoSettingsCallback = CompletionHandler<void(WebCore::PhotoSettingsOrError&&)>;
+    using GetPhotoSettingsCallback = CompletionHandler<void(Expected<WebCore::PhotoSettings, String>&&)>;
     void getPhotoSettings(WebCore::RealtimeMediaSourceIdentifier, GetPhotoSettingsCallback&&);
 
     WebCore::CaptureSourceOrError createMicrophoneSource(const WebCore::CaptureDevice&, WebCore::MediaDeviceHashSalts&&, const WebCore::MediaConstraints*, WebCore::PageIdentifier);

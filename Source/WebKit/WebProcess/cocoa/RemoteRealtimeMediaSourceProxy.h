@@ -74,7 +74,7 @@ public:
     void endProducingData();
     void applyConstraints(const WebCore::MediaConstraints&, WebCore::RealtimeMediaSource::ApplyConstraintsHandler&&);
     void getPhotoCapabilities(WebCore::RealtimeMediaSource::PhotoCapabilitiesHandler&&);
-    void getPhotoSettings(WebCore::RealtimeMediaSource::PhotoSettingsHandler&&);
+    Ref<WebCore::RealtimeMediaSource::PhotoSettingsPromise> getPhotoSettings();
 
     void whenReady(CompletionHandler<void(WebCore::CaptureSourceError&&)>&&);
     void setAsReady();

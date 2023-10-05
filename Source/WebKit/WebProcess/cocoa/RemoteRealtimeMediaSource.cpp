@@ -85,9 +85,9 @@ void RemoteRealtimeMediaSource::getPhotoCapabilities(PhotoCapabilitiesHandler&& 
     m_proxy.getPhotoCapabilities(WTFMove(callback));
 }
 
-void RemoteRealtimeMediaSource::getPhotoSettings(PhotoSettingsHandler&& callback)
+Ref<RealtimeMediaSource::PhotoSettingsPromise> RemoteRealtimeMediaSource::getPhotoSettings()
 {
-    m_proxy.getPhotoSettings(WTFMove(callback));
+    return m_proxy.getPhotoSettings();
 }
 
 void RemoteRealtimeMediaSource::configurationChanged(String&& persistentID, WebCore::RealtimeMediaSourceSettings&& settings, WebCore::RealtimeMediaSourceCapabilities&& capabilities)

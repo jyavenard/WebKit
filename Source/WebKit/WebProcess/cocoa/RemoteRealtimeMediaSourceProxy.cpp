@@ -39,6 +39,7 @@
 #include <WebCore/RealtimeMediaSource.h>
 #include <WebCore/RealtimeMediaSourceCenter.h>
 #include <WebCore/WebAudioBufferList.h>
+#include <wtf/NativePromise.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -117,9 +118,13 @@ void RemoteRealtimeMediaSourceProxy::getPhotoCapabilities(WebCore::RealtimeMedia
     m_connection->sendWithAsyncReply(Messages::UserMediaCaptureManagerProxy::GetPhotoCapabilities(identifier()), WTFMove(handler));
 }
 
-void RemoteRealtimeMediaSourceProxy::getPhotoSettings(WebCore::RealtimeMediaSource::PhotoSettingsHandler&& handler)
+Ref<WebCore::RealtimeMediaSource::PhotoSettingsPromise> RemoteRealtimeMediaSourceProxy::getPhotoSettings()
 {
-    m_connection->sendWithAsyncReply(Messages::UserMediaCaptureManagerProxy::GetPhotoSettings(identifier()), WTFMove(handler));
+    return m_connection->sendWithPromisedReply(Messages::UserMediaCaptureManagerProxy::GetPhotoSettings(identifier()))->whenSettled(RunLoop::main(), [](Messages::UserMediaCaptureManagerProxy::GetPhotoSettings::Promise::Result&& result) {
+        if (result)
+            return WebCore::RealtimeMediaSource::PhotoSettingsPromise::createAndResolveOrReject(WTFMove(result.value()));
+        return WebCore::RealtimeMediaSource::PhotoSettingsPromise::createAndReject(String("IPC Connection closed"_s));
+    });
 }
 
 void RemoteRealtimeMediaSourceProxy::applyConstraintsSucceeded()
