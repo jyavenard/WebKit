@@ -209,6 +209,11 @@ public:
         m_frameRateConstraint = proxy.m_frameRateConstraint;
     }
 
+    Ref<RealtimeMediaSource::TakePhotoNativePromise> takePhoto(PhotoSettings&& settings)
+    {
+        return m_source->takePhoto(WTFMove(settings));
+    }
+
     void getPhotoCapabilities(GetPhotoCapabilitiesCallback&& handler)
     {
         m_source->getPhotoCapabilities(WTFMove(handler));
@@ -560,6 +565,21 @@ void UserMediaCaptureManagerProxy::clone(RealtimeMediaSourceIdentifier clonedID,
         m_proxies.add(newSourceID, WTFMove(cloneProxy));
     }
 }
+
+void UserMediaCaptureManagerProxy::takePhoto(RealtimeMediaSourceIdentifier sourceID, WebCore::PhotoSettings&& settings, TakePhotoCallback&& handler)
+{
+    auto* proxy = m_proxies.get(sourceID);
+    if (!proxy) {
+        handler(Unexpected<String>("Device not available"_s));
+        return;
+    }
+
+    proxy->takePhoto(WTFMove(settings))->whenSettled(RunLoop::main(), [handler = WTFMove(handler)] (auto&& result) mutable {
+        handler(WTFMove(result));
+    });
+}
+
+
 
 void UserMediaCaptureManagerProxy::getPhotoCapabilities(RealtimeMediaSourceIdentifier sourceID, GetPhotoCapabilitiesCallback&& handler)
 {

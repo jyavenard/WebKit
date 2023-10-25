@@ -1456,6 +1456,11 @@ void RealtimeMediaSource::setType(Type type)
     });
 }
 
+auto RealtimeMediaSource::takePhoto(PhotoSettings&&) -> Ref<TakePhotoNativePromise>
+{
+    return TakePhotoNativePromise::createAndReject("Not supported"_s);
+}
+
 void RealtimeMediaSource::getPhotoCapabilities(PhotoCapabilitiesHandler&& completion)
 {
     completion(PhotoCapabilitiesOrError("Not supported"_s));

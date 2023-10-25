@@ -97,6 +97,9 @@ private:
     void setShouldApplyRotation(WebCore::RealtimeMediaSourceIdentifier, bool shouldApplyRotation);
     void setIsInBackground(WebCore::RealtimeMediaSourceIdentifier, bool);
 
+    using TakePhotoCallback = CompletionHandler<void(Expected<std::pair<Vector<uint8_t>, String>, String>&&)>;
+    void takePhoto(WebCore::RealtimeMediaSourceIdentifier, WebCore::PhotoSettings&&, TakePhotoCallback&&);
+
     using GetPhotoCapabilitiesCallback = CompletionHandler<void(WebCore::PhotoCapabilitiesOrError&&)>;
     void getPhotoCapabilities(WebCore::RealtimeMediaSourceIdentifier, GetPhotoCapabilitiesCallback&&);
 
