@@ -128,7 +128,7 @@ private:
     void validateOutputDevice(uint32_t deviceID) final;
 #if PLATFORM(MAC)
     bool migrateToNewDefaultDevice(const CaptureDevice&) final;
-    void prewarmAudioUnitCreation(CompletionHandler<void()>&&) final;
+    Ref<GenericNonExclusivePromise> prewarmAudioUnitCreation() final;
 #endif
     int actualSampleRate() const final;
     void resetSampleRate();
@@ -194,7 +194,7 @@ private:
     bool m_shouldUseVPIO { true };
 #if PLATFORM(MAC)
     StoredAudioUnit m_storedVPIOUnit { nullptr };
-    RefPtr<WTF::GenericPromise> m_audioUnitCreationWarmupPromise;
+    RefPtr<GenericNonExclusivePromise> m_audioUnitCreationWarmupPromise;
 #endif
 };
 

@@ -683,27 +683,21 @@ bool CoreAudioSharedUnit::migrateToNewDefaultDevice(const CaptureDevice& capture
     return true;
 }
 
-void CoreAudioSharedUnit::prewarmAudioUnitCreation(CompletionHandler<void()>&& callback)
+Ref<GenericNonExclusivePromise> CoreAudioSharedUnit::prewarmAudioUnitCreation()
 {
-    if (!m_audioUnitCreationWarmupPromise) {
-        m_audioUnitCreationWarmupPromise = invokeAsync(WorkQueue::create("CoreAudioSharedUnit AudioUnit creation").get(), [weakThis = WeakPtr { *this }] () mutable {
-            callOnMainRunLoop([weakThis = WTFMove(weakThis), vpioUnitOrError = createAudioUnit(true)] () mutable {
-                if (weakThis && vpioUnitOrError.has_value())
-                    weakThis->setStoredVPIOUnit(WTFMove(vpioUnitOrError.value()));
-            });
-            return WTF::GenericPromise::createAndResolve();
-        });
-    }
+    if (m_audioUnitCreationWarmupPromise)
+        return *m_audioUnitCreationWarmupPromise;
 
-    if (!m_audioUnitCreationWarmupPromise->isSettled()) {
-        m_audioUnitCreationWarmupPromise = m_audioUnitCreationWarmupPromise->whenSettled(RunLoop::main(), [callback = WTFMove(callback)] (auto&&) mutable {
-            callback();
-            return WTF::GenericPromise::createAndResolve();
-        });
-        return;
-    }
-
-    callback();
+    m_audioUnitCreationWarmupPromise = invokeAsync(WorkQueue::create("CoreAudioSharedUnit AudioUnit creation").get(), [] {
+        return NativePromise<CoreAudioSharedUnit::StoredAudioUnit, OSStatus>::createAndSettle(createAudioUnit(true));
+    })->whenSettled(RunLoop::current(), [weakThis = WeakPtr { *this }](auto&& vpioUnitOrError) mutable {
+        if (!weakThis)
+            return GenericNonExclusivePromise::createAndReject();
+        if (vpioUnitOrError.has_value())
+            weakThis->setStoredVPIOUnit(WTFMove(vpioUnitOrError.value()));
+        return GenericNonExclusivePromise::createAndResolve();
+    });
+    return *m_audioUnitCreationWarmupPromise;
 }
 #endif
 

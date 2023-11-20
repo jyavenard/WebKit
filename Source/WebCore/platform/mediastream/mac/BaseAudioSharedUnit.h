@@ -34,6 +34,7 @@
 #include <wtf/HashSet.h>
 #include <wtf/Lock.h>
 #include <wtf/MediaTime.h>
+#include <wtf/NativePromise.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
@@ -55,7 +56,7 @@ public:
     virtual bool isProducingData() const = 0;
 
     virtual void delaySamples(Seconds) { }
-    virtual void prewarmAudioUnitCreation(CompletionHandler<void()>&& callback) { callback(); };
+    virtual Ref<GenericNonExclusivePromise> prewarmAudioUnitCreation() { return GenericNonExclusivePromise::createAndResolve(); };
 
     void prepareForNewCapture();
 

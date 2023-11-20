@@ -346,7 +346,7 @@ void CoreAudioCaptureSource::setIsInBackground(bool value)
 #if PLATFORM(MAC)
 void CoreAudioCaptureSource::whenReady(CompletionHandler<void(CaptureSourceError&&)>&& callback)
 {
-    unit().prewarmAudioUnitCreation([callback = WTFMove(callback)] () mutable {
+    unit().prewarmAudioUnitCreation()->whenSettled(RunLoop::current(), [callback = WTFMove(callback)]() mutable {
         callback({ });
     });
 }
