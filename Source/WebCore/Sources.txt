@@ -222,6 +222,7 @@ Modules/mediasource/DOMURLMediaSource.cpp
 Modules/mediasource/ManagedMediaSource.cpp
 Modules/mediasource/ManagedSourceBuffer.cpp
 Modules/mediasource/MediaSource.cpp
+Modules/mediasource/MediaSourceHandle.cpp
 Modules/mediasource/MediaSourceInterfaceMainThread.cpp
 Modules/mediasource/MediaSourceInterfaceWorker.cpp
 Modules/mediasource/MediaSourceRegistry.cpp
@@ -3909,6 +3910,7 @@ JSMediaSessionReadyState.cpp
 JSMediaSession.cpp
 JSMediaSettingsRange.cpp
 JSMediaSource.cpp
+JSMediaSourceHandle.cpp
 JSMediaStream.cpp
 JSMediaStreamAudioDestinationNode.cpp
 JSMediaStreamAudioSourceNode.cpp

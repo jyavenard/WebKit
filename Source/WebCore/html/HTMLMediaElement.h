@@ -101,6 +101,7 @@ class MediaKeys;
 class MediaResourceLoader;
 class MediaSession;
 class MediaSource;
+class MediaSourceHandle;
 class MediaSourceInterfaceProxy;
 class MediaStream;
 class RenderMedia;
@@ -134,6 +135,9 @@ using MediaProvider = std::optional < std::variant <
 #endif
 #if ENABLE(MEDIA_SOURCE)
     RefPtr<MediaSource>,
+#endif
+#if ENABLE(MEDIA_SOURCE_IN_WORKER)
+    RefPtr<MediaSourceHandle>,
 #endif
     RefPtr<Blob>>>;
 

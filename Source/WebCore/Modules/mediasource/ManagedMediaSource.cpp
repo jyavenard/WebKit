@@ -128,10 +128,12 @@ bool ManagedMediaSource::isBuffered(const PlatformTimeRanges& ranges) const
 
 void ManagedMediaSource::ensurePrefsRead()
 {
+    ASSERT(scriptExecutionContext());
+
     if (m_lowThreshold && m_highThreshold)
         return;
-    m_lowThreshold = settings().managedMediaSourceLowThreshold();
-    m_highThreshold = settings().managedMediaSourceHighThreshold();
+    m_lowThreshold = scriptExecutionContext()->settingsValues().managedMediaSourceLowThreshold;
+    m_highThreshold = scriptExecutionContext()->settingsValues().managedMediaSourceHighThreshold;
 }
 
 void ManagedMediaSource::monitorSourceBuffers()

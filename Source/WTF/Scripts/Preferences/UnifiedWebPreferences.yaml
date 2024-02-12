@@ -4612,6 +4612,21 @@ MediaSourceEnabled:
       "ENABLE(MEDIA_SOURCE)": true
       default: false
 
+MediaSourceInWorker:
+  type: bool
+  status: unstable
+  category: media
+  humanReadableName: "MediaSource in a Worker"
+  humanReadableDescription: "MediaSource in a Worker"
+  condition: ENABLE(MEDIA_SOURCE_IN_WORKER)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 MediaSourceInlinePaintingEnabled:
   type: bool
   status: mature

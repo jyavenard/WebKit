@@ -34,6 +34,9 @@ typedef (
 #if defined(ENABLE_MEDIA_SOURCE) && ENABLE_MEDIA_SOURCE
     MediaSource or
 #endif
+#if defined(ENABLE_MEDIA_SOURCE_IN_WORKER) && ENABLE_MEDIA_SOURCE_IN_WORKER
+    MediaSourceHandle or
+#endif
     Blob) MediaProvider;
 
 [

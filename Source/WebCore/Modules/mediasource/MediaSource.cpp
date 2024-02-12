@@ -45,6 +45,9 @@
 #include "Logging.h"
 #include "ManagedMediaSource.h"
 #include "ManagedSourceBuffer.h"
+#if ENABLE(MEDIA_SOURCE_IN_WORKER)
+#include "MediaSourceHandle.h"
+#endif
 #include "MediaSourcePrivate.h"
 #include "MediaSourceRegistry.h"
 #include "Quirks.h"
@@ -636,7 +639,8 @@ void MediaSource::setReadyState(ReadyState state)
     if (oldState == state)
         return;
 
-    m_readyState = state;
+    if (m_private)
+        m_private->setReadyState(state);
 
     onReadyStateChange(oldState, state);
 }
@@ -787,14 +791,15 @@ ExceptionOr<Ref<SourceBuffer>> MediaSource::addSourceBuffer(const String& type)
     if (type.isEmpty())
         return Exception { ExceptionCode::TypeError };
 
-    // 2. If type contains a MIME type that is not supported ..., then throw a
-    // NotSupportedError exception and abort these steps.
-    Vector<ContentType> mediaContentTypesRequiringHardwareSupport;
-    mediaContentTypesRequiringHardwareSupport.appendVector(settings().mediaContentTypesRequiringHardwareSupport());
-
     auto context = scriptExecutionContext();
     if (!context)
         return Exception { ExceptionCode::NotAllowedError };
+
+    // 2. If type contains a MIME type that is not supported ..., then throw a
+    // NotSupportedError exception and abort these steps.
+    Vector<ContentType> mediaContentTypesRequiringHardwareSupport;
+    if (RefPtr document = dynamicDowncast<Document>(context))
+        mediaContentTypesRequiringHardwareSupport.appendVector(document->settings().mediaContentTypesRequiringHardwareSupport());
 
     if (!isTypeSupported(*context, type, WTFMove(mediaContentTypesRequiringHardwareSupport)))
         return Exception { ExceptionCode::NotSupportedError };
@@ -1055,14 +1060,13 @@ bool MediaSource::isTypeSupported(ScriptExecutionContext& context, const String&
     parameters.contentTypesRequiringHardwareSupport = WTFMove(contentTypesRequiringHardwareSupport);
 
     if (RefPtr document = dynamicDowncast<Document>(context)) {
-        auto& settings = document->settings();
-        if (!contentTypeMeetsContainerAndCodecTypeRequirements(contentType, settings.allowedMediaContainerTypes(), settings.allowedMediaCodecTypes()))
+        if (!contentTypeMeetsContainerAndCodecTypeRequirements(contentType, document->settings().allowedMediaContainerTypes(), document->settings().allowedMediaCodecTypes()))
             return false;
 
-        parameters.allowedMediaContainerTypes = settings.allowedMediaContainerTypes();
-        parameters.allowedMediaVideoCodecIDs = settings.allowedMediaVideoCodecIDs();
-        parameters.allowedMediaAudioCodecIDs = settings.allowedMediaAudioCodecIDs();
-        parameters.allowedMediaCaptionFormatTypes = settings.allowedMediaCaptionFormatTypes();
+        parameters.allowedMediaContainerTypes = document->settings().allowedMediaContainerTypes();
+        parameters.allowedMediaVideoCodecIDs = document->settings().allowedMediaVideoCodecIDs();
+        parameters.allowedMediaAudioCodecIDs = document->settings().allowedMediaAudioCodecIDs();
+        parameters.allowedMediaCaptionFormatTypes = document->settings().allowedMediaCaptionFormatTypes();
     }
 
     MediaPlayer::SupportsType supported = MediaPlayer::supportsType(parameters);
@@ -1075,17 +1079,17 @@ bool MediaSource::isTypeSupported(ScriptExecutionContext& context, const String&
 
 bool MediaSource::isOpen() const
 {
-    return m_readyState == ReadyState::Open && !m_openDeferred;
+    return readyState() == ReadyState::Open;
 }
 
 bool MediaSource::isClosed() const
 {
-    return m_readyState == ReadyState::Closed || m_openDeferred;
+    return readyState() == ReadyState::Closed;
 }
 
 bool MediaSource::isEnded() const
 {
-    return m_readyState == ReadyState::Ended;
+    return readyState() == ReadyState::Ended;
 }
 
 void MediaSource::detachFromElement()
@@ -1140,7 +1144,7 @@ bool MediaSource::attachToElement(WeakPtr<HTMLMediaElement>&& element)
 
 void MediaSource::openIfInEndedState()
 {
-    if (m_readyState != ReadyState::Ended)
+    if (readyState() != ReadyState::Ended)
         return;
 
     ALWAYS_LOG(LOGIDENTIFIER);
@@ -1182,15 +1186,6 @@ bool MediaSource::virtualHasPendingActivity() const
     return m_private || m_associatedRegistryCount;
 }
 
-const Settings& MediaSource::settings() const
-{
-    ASSERT(isMainThread());
-
-    ASSERT(scriptExecutionContext());
-    ASSERT(is<Document>(*scriptExecutionContext()));
-    return downcast<const Document>(*scriptExecutionContext()).settings();
-}
-
 void MediaSource::stop()
 {
     ALWAYS_LOG(LOGIDENTIFIER);
@@ -1198,7 +1193,6 @@ void MediaSource::stop()
     if (m_mediaElement)
         m_mediaElement->detachMediaSource();
     m_seekTargetPromise.reset();
-    m_readyState = ReadyState::Closed;
     m_private = nullptr;
 }
 
@@ -1209,7 +1203,7 @@ const char* MediaSource::activeDOMObjectName() const
 
 MediaSource::ReadyState MediaSource::readyState() const
 {
-    return m_openDeferred ? ReadyState::Closed : m_readyState;
+    return (m_openDeferred || !m_private) ? ReadyState::Closed : m_private->readyState();
 }
 
 void MediaSource::onReadyStateChange(ReadyState oldState, ReadyState newState)
@@ -1485,6 +1479,40 @@ Ref<MediaSourcePrivateClient> MediaSource::client() const
 {
     return m_client;
 }
+
+bool MediaSource::enabledForContext(ScriptExecutionContext& context)
+{
+    UNUSED_PARAM(context);
+#if ENABLE(GPU_PROCESS)
+    if (context.isWorkerGlobalScope())
+        return context.settingsValues().mediaSourceInWorker;
+#endif
+
+    ASSERT(context.isDocument());
+    return true;
+}
+
+#if ENABLE(MEDIA_SOURCE_IN_WORKER)
+
+Ref<MediaSourceHandle> MediaSource::handle()
+{
+    ASSERT(m_private);
+
+    if (!m_handle) {
+        m_handle = MediaSourceHandle::create(*m_private, m_client, [weakClient = ThreadSafeWeakPtr { m_client.get() }](Function<void()>&& task) {
+            if (RefPtr protectedClient = weakClient.get())
+                protectedClient->ensureWeakOnDispatcher(WTFMove(task));
+        });
+    }
+    return *m_handle;
+}
+
+bool MediaSource::canConstructInDedicatedWorker(ScriptExecutionContext& context)
+{
+    return context.settingsValues().mediaSourceInWorker;
+}
+
+#endif
 
 } // namespace WebCore
 

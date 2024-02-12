@@ -166,6 +166,9 @@
 #if ENABLE(MEDIA_SOURCE)
 #include "MediaSourceInterfaceMainThread.h"
 #include "MediaSource.h"
+#if ENABLE(MEDIA_SOURCE_IN_WORKER)
+#include "MediaSourceHandle.h"
+#endif
 #include "LocalDOMWindow.h"
 #include "SourceBufferList.h"
 #endif
@@ -1478,6 +1481,9 @@ void HTMLMediaElement::selectMediaResource()
 #endif
 #if ENABLE(MEDIA_SOURCE)
                 [this](RefPtr<MediaSource> source) { m_mediaSource = MediaSourceInterfaceMainThread::create(source.releaseNonNull()); },
+#endif
+#if ENABLE(MEDIA_SOURCE_IN_WORKER)
+                [](RefPtr<MediaSourceHandle>) { /*m_mediaSource = MediaSourceInterfaceMainThread::create(source.releaseNonNull());*/ },
 #endif
                 [this](RefPtr<Blob> blob) { m_blob = blob; }
             );

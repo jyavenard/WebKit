@@ -52,13 +52,15 @@ namespace WebCore {
 class AudioTrack;
 class ContentType;
 class MediaSourceClientImpl;
-class Settings;
+class MediaSourceHandle;
 class SourceBuffer;
 class SourceBufferList;
 class SourceBufferPrivate;
 class TextTrack;
 class TimeRanges;
 class VideoTrack;
+
+enum class MediaSourceReadyState { Closed, Open, Ended };
 
 class MediaSource
     : public RefCounted<MediaSource>
@@ -83,6 +85,8 @@ public:
     using CanMakeWeakPtr<MediaSource>::WeakPtrImplType;
     using RefCounted::ref;
     using RefCounted::deref;
+
+    static bool enabledForContext(ScriptExecutionContext&);
 
     void addedToRegistry();
     void removedFromRegistry();
@@ -110,7 +114,7 @@ public:
     ExceptionOr<void> setDurationInternal(const MediaTime&);
     MediaTime currentTime() const;
 
-    enum class ReadyState { Closed, Open, Ended };
+    using ReadyState = MediaSourceReadyState;
     ReadyState readyState() const;
     ExceptionOr<void> endOfStream(std::optional<EndOfStreamError>);
 
@@ -119,6 +123,11 @@ public:
     ExceptionOr<Ref<SourceBuffer>> addSourceBuffer(const String& type);
     ExceptionOr<void> removeSourceBuffer(SourceBuffer&);
     static bool isTypeSupported(ScriptExecutionContext&, const String& type);
+
+#if ENABLE(MEDIA_SOURCE_IN_WORKER)
+    Ref<MediaSourceHandle> handle();
+    static bool canConstructInDedicatedWorker(ScriptExecutionContext&);
+#endif
 
     ScriptExecutionContext* scriptExecutionContext() const final;
 
@@ -163,8 +172,6 @@ protected:
 
     virtual void elementDetached() { }
 
-    const Settings& settings() const;
-
     RefPtr<MediaSourcePrivate> m_private;
     WeakPtr<HTMLMediaElement> m_mediaElement;
 
@@ -208,9 +215,11 @@ private:
     PlatformTimeRanges m_liveSeekable;
     std::optional<SeekTarget> m_pendingSeekTarget;
     std::optional<MediaTimePromise::AutoRejectProducer> m_seekTargetPromise;
-    ReadyState m_readyState { ReadyState::Closed };
     bool m_openDeferred { false };
     bool m_sourceopenPending { false };
+#if ENABLE(MEDIA_SOURCE_IN_WORKER)
+    RefPtr<MediaSourceHandle> m_handle;
+#endif
 
 #if !RELEASE_LOG_DISABLED
     Ref<const Logger> m_logger;

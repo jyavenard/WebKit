@@ -471,9 +471,10 @@ ExceptionOr<void> SourceBuffer::changeType(const String& type)
     // the parent media source, then throw a NotSupportedError exception and abort these steps.
     ContentType contentType(type);
 
-    auto& settings = this->settings();
-    if (!contentTypeMeetsContainerAndCodecTypeRequirements(contentType, settings.allowedMediaContainerTypes(), settings.allowedMediaCodecTypes()))
-        return Exception { ExceptionCode::NotSupportedError };
+    if (RefPtr document = dynamicDowncast<Document>(scriptExecutionContext())) {
+        if (!contentTypeMeetsContainerAndCodecTypeRequirements(contentType, document->settings().allowedMediaContainerTypes(), document->settings().allowedMediaCodecTypes()))
+            return Exception { ExceptionCode::NotSupportedError };
+    }
 
     if (!m_private->canSwitchToType(contentType))
         return Exception { ExceptionCode::NotSupportedError };
@@ -717,7 +718,7 @@ uint64_t SourceBuffer::maximumBufferSize() const
     const float bufferBudgetPercentageForVideo = .95;
     const float bufferBudgetPercentageForAudio = .05;
 
-    size_t maximum = settings().maximumSourceBufferSize();
+    size_t maximum = scriptExecutionContext()->settingsValues().maximumSourceBufferSize;
 
     // Allow a SourceBuffer to buffer as though it is audio-only even if it doesn't have any active tracks (yet).
     size_t bufferSize = static_cast<size_t>(maximum * bufferBudgetPercentageForAudio);
@@ -876,19 +877,21 @@ Ref<MediaPromise> SourceBuffer::sourceBufferPrivateDidReceiveInitializationSegme
         // then run the append error algorithm with the decode error parameter set to true and abort these steps.
         // NOTE: This check is the responsibility of the SourceBufferPrivate.
         // appendError will be called once sourceBufferPrivateAppendComplete gets called once the completionHandler is run.
-        if (auto& allowedMediaAudioCodecIDs = settings().allowedMediaAudioCodecIDs()) {
-            for (auto& audioTrackInfo : segment.audioTracks) {
-                if (audioTrackInfo.description && allowedMediaAudioCodecIDs->contains(FourCC::fromString(audioTrackInfo.description->codec())))
-                    continue;
-                return MediaPromise::createAndReject(PlatformMediaError::AppendError);
+        if (RefPtr document = dynamicDowncast<Document>(scriptExecutionContext())) {
+            if (auto& allowedMediaAudioCodecIDs = document->settings().allowedMediaAudioCodecIDs()) {
+                for (auto& audioTrackInfo : segment.audioTracks) {
+                    if (audioTrackInfo.description && allowedMediaAudioCodecIDs->contains(FourCC::fromString(audioTrackInfo.description->codec())))
+                        continue;
+                    return MediaPromise::createAndReject(PlatformMediaError::AppendError);
+                }
             }
-        }
 
-        if (auto& allowedMediaVideoCodecIDs = settings().allowedMediaVideoCodecIDs()) {
-            for (auto& videoTrackInfo : segment.videoTracks) {
-                if (videoTrackInfo.description && allowedMediaVideoCodecIDs->contains(FourCC::fromString(videoTrackInfo.description->codec())))
-                    continue;
-                return MediaPromise::createAndReject(PlatformMediaError::AppendError);
+            if (auto& allowedMediaVideoCodecIDs = document->settings().allowedMediaVideoCodecIDs()) {
+                for (auto& videoTrackInfo : segment.videoTracks) {
+                    if (videoTrackInfo.description && allowedMediaVideoCodecIDs->contains(FourCC::fromString(videoTrackInfo.description->codec())))
+                        continue;
+                    return MediaPromise::createAndReject(PlatformMediaError::AppendError);
+                }
             }
         }
 
@@ -1318,15 +1321,6 @@ void SourceBuffer::setMaximumQueueDepthForTrackID(TrackID trackID, uint64_t maxQ
     m_private->setMaximumQueueDepthForTrackID(trackID, maxQueueDepth);
 }
 
-const Settings& SourceBuffer::settings() const
-{
-    ASSERT(isMainThread());
-
-    ASSERT(scriptExecutionContext());
-    ASSERT(is<Document>(*scriptExecutionContext()));
-    return downcast<const Document>(*scriptExecutionContext()).settings();
-}
-
 ExceptionOr<void> SourceBuffer::setMode(AppendMode newMode)
 {
     // 3.1 Attributes - mode
@@ -1497,6 +1491,18 @@ WTFLogChannel& SourceBuffer::logChannel() const
     return LogMediaSource;
 }
 #endif
+
+bool SourceBuffer::enabledForContext(ScriptExecutionContext& context)
+{
+    UNUSED_PARAM(context);
+#if ENABLE(GPU_PROCESS)
+    if (context.isWorkerGlobalScope())
+        return context.settingsValues().mediaSourceInWorker;
+#endif
+
+    ASSERT(context.isDocument());
+    return true;
+}
 
 } // namespace WebCore
 

@@ -28,6 +28,7 @@
 
 #if ENABLE(MEDIA_SOURCE)
 
+#include "MediaSource.h"
 #include "MediaSourcePrivateClient.h"
 #include "PlatformTimeRanges.h"
 #include "SourceBufferPrivate.h"
@@ -61,7 +62,8 @@ MediaSourcePrivate::MediaSourcePrivate(MediaSourcePrivateClient& client)
 }
 
 MediaSourcePrivate::MediaSourcePrivate(MediaSourcePrivateClient& client, RefCountedSerialFunctionDispatcher& dispatcher)
-    : m_dispatcher(dispatcher)
+    : m_readyState(MediaSourceReadyState::Closed)
+    , m_dispatcher(dispatcher)
     , m_client(client)
 {
 }

@@ -45,6 +45,7 @@ class SourceBufferPrivate;
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
 class LegacyCDMSession;
 #endif
+enum class MediaSourceReadyState;
 
 enum class MediaSourcePrivateAddStatus : uint8_t {
     Ok,
@@ -80,12 +81,14 @@ public:
     virtual void durationChanged(const MediaTime&); // Base class method must be called in overrides. Must be thread-safe
     virtual void bufferedChanged(const PlatformTimeRanges&); // Base class method must be called in overrides. Must be thread-safe.
 
+    virtual MediaPlayer::ReadyState mediaPlayerReadyState() const = 0;
+    virtual void setMediaPlayerReadyState(MediaPlayer::ReadyState) = 0;
     virtual void markEndOfStream(EndOfStreamStatus) { m_isEnded = true; }
     virtual void unmarkEndOfStream() { m_isEnded = false; }
     bool isEnded() const { return m_isEnded; }
 
-    virtual MediaPlayer::ReadyState mediaPlayerReadyState() const = 0;
-    virtual void setMediaPlayerReadyState(MediaPlayer::ReadyState) = 0;
+    virtual MediaSourceReadyState readyState() const { return m_readyState; }
+    virtual void setReadyState(MediaSourceReadyState readyState) { m_readyState = readyState; }
 
     MediaTime currentTime() const;
 
@@ -113,6 +116,7 @@ protected:
     Vector<RefPtr<SourceBufferPrivate>> m_sourceBuffers;
     Vector<SourceBufferPrivate*> m_activeSourceBuffers;
     std::atomic<bool> m_isEnded { false }; // Set on MediaSource's dispatcher.
+    std::atomic<MediaSourceReadyState> m_readyState;  // Set on MediaSource's dispatcher.
     const Ref<RefCountedSerialFunctionDispatcher> m_dispatcher; // SerialFunctionDispatcher the SourceBufferPrivate/MediaSourcePrivate is running on.
 
 private:

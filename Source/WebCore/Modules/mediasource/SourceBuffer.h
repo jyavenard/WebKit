@@ -53,7 +53,6 @@ class BufferSource;
 class SourceBufferClientImpl;
 class MediaSource;
 class PlatformTimeRanges;
-class Settings;
 class SourceBufferPrivate;
 class TextTrackList;
 class TimeRanges;
@@ -82,6 +81,8 @@ public:
     using CanMakeWeakPtr<SourceBuffer>::WeakPtrImplType;
     using RefCounted::ref;
     using RefCounted::deref;
+
+    static bool enabledForContext(ScriptExecutionContext&);
 
     bool updating() const { return m_updating; }
     ExceptionOr<Ref<TimeRanges>> buffered();
@@ -153,7 +154,6 @@ public:
 
 protected:
     SourceBuffer(Ref<SourceBufferPrivate>&&, MediaSource&);
-    const Settings& settings() const;
 
 private:
     friend class SourceBufferClientImpl;
