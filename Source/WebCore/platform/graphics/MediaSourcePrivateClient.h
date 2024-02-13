@@ -38,7 +38,7 @@ namespace WebCore {
 
 class MediaSourcePrivate;
 
-class MediaSourcePrivateClient : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<MediaSourcePrivateClient, WTF::DestructionThread::Main> {
+class MediaSourcePrivateClient : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<MediaSourcePrivateClient> {
 public:
     virtual ~MediaSourcePrivateClient() = default;
 
