@@ -25,7 +25,7 @@
 
 [
     JSGenerateToNativeObject,
-    Conditional=MEDIA_SOURCE_IN_WORKER,
+    Conditional=MEDIA_SOURCE_IN_WORKERS,
     EnabledBySetting=MediaSourceInWorker,
     Exposed=(Window,DedicatedWorker)
 ] interface MediaSourceHandle {};

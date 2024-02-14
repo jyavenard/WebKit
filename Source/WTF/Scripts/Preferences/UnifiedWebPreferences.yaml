@@ -4618,7 +4618,7 @@ MediaSourceInWorker:
   category: media
   humanReadableName: "MediaSource in a Worker"
   humanReadableDescription: "MediaSource in a Worker"
-  condition: ENABLE(MEDIA_SOURCE_IN_WORKER)
+  condition: ENABLE(MEDIA_SOURCE_IN_WORKERS)
   defaultValue:
     WebKitLegacy:
       default: false

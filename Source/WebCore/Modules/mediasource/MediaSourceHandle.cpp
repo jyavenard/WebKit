@@ -26,7 +26,7 @@
 #include "config.h"
 #include "MediaSourceHandle.h"
 
-#if ENABLE(MEDIA_SOURCE_IN_WORKER)
+#if ENABLE(MEDIA_SOURCE_IN_WORKERS)
 
 #include "MediaSourcePrivate.h"
 #include "MediaSourcePrivateClient.h"
@@ -35,18 +35,25 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(MediaSourceHandle);
 
-Ref<MediaSourceHandle> MediaSourceHandle::create(MediaSourcePrivate& mediaSourcePrivate, MediaSourcePrivateClient& client, Function<void(Function<void()>&&)>&& dispatcher)
+Ref<MediaSourceHandle> MediaSourceHandle::create(MediaSourcePrivateClient& client, Function<void(Function<void()>&&)>&& dispatcher)
 {
-    return adoptRef(*new MediaSourceHandle(mediaSourcePrivate, client, WTFMove(dispatcher)));
+    return adoptRef(*new MediaSourceHandle(client, WTFMove(dispatcher)));
 }
 
-MediaSourceHandle::MediaSourceHandle(MediaSourcePrivate& mediaSourcePrivate, MediaSourcePrivateClient& client, Function<void(Function<void()>&&)>&& dispatcher)
-    : m_private(mediaSourcePrivate)
-    , m_client(client)
+MediaSourceHandle::MediaSourceHandle(MediaSourcePrivateClient& client, Function<void(Function<void()>&&)>&& dispatcher)
+    : m_client(client)
     , m_dispatcher(WTFMove(dispatcher))
 {
 }
 
+void MediaSourceHandle::setMediaSourcePrivate(MediaSourcePrivate& mediaSourcePrivate)
+{
+    if (m_hasEverBeenAssigned)
+        return;
+    m_private = mediaSourcePrivate;
+    m_hasEverBeenAssigned = true;
 }
 
-#endif // MEDIA_SOURCE_IN_WORKER
+}
+
+#endif // MEDIA_SOURCE_IN_WORKERS

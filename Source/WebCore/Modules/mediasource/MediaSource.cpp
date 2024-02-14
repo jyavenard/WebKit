@@ -45,7 +45,7 @@
 #include "Logging.h"
 #include "ManagedMediaSource.h"
 #include "ManagedSourceBuffer.h"
-#if ENABLE(MEDIA_SOURCE_IN_WORKER)
+#if ENABLE(MEDIA_SOURCE_IN_WORKERS)
 #include "MediaSourceHandle.h"
 #endif
 #include "MediaSourcePrivate.h"
@@ -1516,14 +1516,12 @@ bool MediaSource::enabledForContext(ScriptExecutionContext& context)
     return true;
 }
 
-#if ENABLE(MEDIA_SOURCE_IN_WORKER)
+#if ENABLE(MEDIA_SOURCE_IN_WORKERS)
 
 Ref<MediaSourceHandle> MediaSource::handle()
 {
-    ASSERT(m_private);
-
     if (!m_handle) {
-        m_handle = MediaSourceHandle::create(*m_private, m_client, [weakClient = ThreadSafeWeakPtr { m_client.get() }](Function<void()>&& task) {
+        m_handle = MediaSourceHandle::create(m_client, [weakClient = ThreadSafeWeakPtr { m_client.get() }](Function<void()>&& task) {
             if (RefPtr protectedClient = weakClient.get())
                 protectedClient->ensureWeakOnDispatcher(WTFMove(task));
         });

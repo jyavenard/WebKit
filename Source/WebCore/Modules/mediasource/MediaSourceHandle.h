@@ -24,7 +24,7 @@
  */
 
 #pragma once
-#if ENABLE(MEDIA_SOURCE_IN_WORKER)
+#if ENABLE(MEDIA_SOURCE_IN_WORKERS)
 
 #include "JSDOMGlobalObject.h"
 #include <wtf/Forward.h>
@@ -41,14 +41,15 @@ class MediaSourceHandle
 {
     WTF_MAKE_ISO_ALLOCATED(MediaSourceHandle);
 public:
-    static Ref<MediaSourceHandle> create(MediaSourcePrivate&, MediaSourcePrivateClient&, Function<void(Function<void()>&&)>&&);
+    static Ref<MediaSourceHandle> create(MediaSourcePrivateClient&, Function<void(Function<void()>&&)>&&);
     virtual ~MediaSourceHandle() = default;
 
     bool detached() const { return m_detached; }
     void ensureOnDispatcher(Function<void()>&& function);
+    void setMediaSourcePrivate(MediaSourcePrivate&);
 
 private:
-    MediaSourceHandle(MediaSourcePrivate&, MediaSourcePrivateClient&, Function<void(Function<void()>&&)>&&);
+    MediaSourceHandle(MediaSourcePrivateClient&, Function<void(Function<void()>&&)>&&);
 
     ThreadSafeWeakPtr<MediaSourcePrivate> m_private;
     ThreadSafeWeakPtr<MediaSourcePrivateClient> m_client;
@@ -59,4 +60,4 @@ private:
 
 } // namespace WebCore
 
-#endif // MEDIA_SOURCE_IN_WORKER
+#endif // MEDIA_SOURCE_IN_WORKERS

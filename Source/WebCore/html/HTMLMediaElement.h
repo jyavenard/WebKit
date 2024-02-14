@@ -136,7 +136,7 @@ using MediaProvider = std::optional < std::variant <
 #if ENABLE(MEDIA_SOURCE)
     RefPtr<MediaSource>,
 #endif
-#if ENABLE(MEDIA_SOURCE_IN_WORKER)
+#if ENABLE(MEDIA_SOURCE_IN_WORKERS)
     RefPtr<MediaSourceHandle>,
 #endif
     RefPtr<Blob>>>;

@@ -50,7 +50,7 @@ enum ReadyState {
 ] interface MediaSource : EventTarget {
     [CallWith=CurrentScriptExecutionContext] constructor();
 
-    [SameObject, Exposed=DedicatedWorker, Conditional=MEDIA_SOURCE_IN_WORKER, EnabledBySetting=MediaSourceInWorker]
+    [SameObject, Exposed=DedicatedWorker, Conditional=MEDIA_SOURCE_IN_WORKERS, EnabledBySetting=MediaSourceInWorker]
     readonly attribute MediaSourceHandle handle;
 
     // All the source buffers created by this object.
@@ -65,7 +65,7 @@ enum ReadyState {
     attribute EventHandler onsourceended;
     attribute EventHandler onsourceclose;
 
-    [Conditional=MEDIA_SOURCE_IN_WORKER, CallWith=CurrentScriptExecutionContext]
+    [Conditional=MEDIA_SOURCE_IN_WORKERS, CallWith=CurrentScriptExecutionContext]
     static readonly attribute boolean canConstructInDedicatedWorker;
 
     [NewObject] SourceBuffer addSourceBuffer(DOMString type);
