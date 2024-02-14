@@ -28,6 +28,7 @@
 
 #include "JSDOMGlobalObject.h"
 #include <wtf/Forward.h>
+#include <wtf/Function.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 
@@ -42,21 +43,35 @@ class MediaSourceHandle
     WTF_MAKE_ISO_ALLOCATED(MediaSourceHandle);
 public:
     static Ref<MediaSourceHandle> create(MediaSourcePrivateClient&, Function<void(Function<void()>&&)>&&);
-    virtual ~MediaSourceHandle() = default;
+    static Ref<MediaSourceHandle> create(Ref<MediaSourceHandle>&&);
 
-    bool detached() const { return m_detached; }
-    void ensureOnDispatcher(Function<void()>&& function);
-    void setMediaSourcePrivate(MediaSourcePrivate&);
+    virtual ~MediaSourceHandle();
+
+    bool isDetached() const { return m_detached; }
+    bool canDetach() const { return !isDetached() && m_hasEverBeenAssignedAsSrcObject; }
+
+    void setHasEverBeenAssignedAsSrcObject() { m_hasEverBeenAssignedAsSrcObject = true; }
+    bool hasEverBeenAssignedAsSrcObject() const { return m_hasEverBeenAssignedAsSrcObject; }
+
+    void ensureOnDispatcher(Function<void()>&& task);
+
+    Ref<MediaSourceHandle> detach();
 
 private:
     MediaSourceHandle(MediaSourcePrivateClient&, Function<void(Function<void()>&&)>&&);
+    MediaSourceHandle(MediaSourceHandle&);
 
-    ThreadSafeWeakPtr<MediaSourcePrivate> m_private;
+    class Dispatcher;
+
+    void setDetached(bool value) { m_detached = value; }
+
     ThreadSafeWeakPtr<MediaSourcePrivateClient> m_client;
-    bool m_hasEverBeenAssigned { false };
+    bool m_hasEverBeenAssignedAsSrcObject { false };
     bool m_detached { false };
-    const Function<void(Function<void()>&&)> m_dispatcher;
+    Ref<Dispatcher> m_dispatcher;
 };
+
+using DetachedMediaSourceHandle = MediaSourceHandle;
 
 } // namespace WebCore
 

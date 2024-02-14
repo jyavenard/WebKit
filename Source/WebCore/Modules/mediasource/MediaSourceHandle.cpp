@@ -35,23 +35,53 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(MediaSourceHandle);
 
+class MediaSourceHandle::Dispatcher final : public ThreadSafeRefCounted<Dispatcher> {
+public:
+    static Ref<Dispatcher> create(Function<void(Function<void()>&&)>&& dispatcher) { return adoptRef(*new Dispatcher(WTFMove(dispatcher))); }
+
+    void dispatch(Function<void()>&& task) const
+    {
+        m_dispatcher(WTFMove(task));
+    }
+private:
+    Dispatcher(Function<void(Function<void()>&&)>&& dispatcher)
+        : m_dispatcher(WTFMove(dispatcher))
+    {
+    }
+    const Function<void(Function<void()>&&)> m_dispatcher;
+};
+
 Ref<MediaSourceHandle> MediaSourceHandle::create(MediaSourcePrivateClient& client, Function<void(Function<void()>&&)>&& dispatcher)
 {
     return adoptRef(*new MediaSourceHandle(client, WTFMove(dispatcher)));
 }
 
+Ref<MediaSourceHandle> MediaSourceHandle::create(Ref<MediaSourceHandle>&& other)
+{
+    other->setDetached(false);
+    return other;
+}
+
 MediaSourceHandle::MediaSourceHandle(MediaSourcePrivateClient& client, Function<void(Function<void()>&&)>&& dispatcher)
     : m_client(client)
-    , m_dispatcher(WTFMove(dispatcher))
+    , m_dispatcher(Dispatcher::create(WTFMove(dispatcher)))
 {
 }
 
-void MediaSourceHandle::setMediaSourcePrivate(MediaSourcePrivate& mediaSourcePrivate)
+MediaSourceHandle::MediaSourceHandle(MediaSourceHandle& other)
+    : m_client(other.m_client)
+    , m_detached(false)
+    , m_dispatcher(other.m_dispatcher)
 {
-    if (m_hasEverBeenAssigned)
-        return;
-    m_private = mediaSourcePrivate;
-    m_hasEverBeenAssigned = true;
+    ASSERT(!other.m_detached);
+    other.m_detached = true;
+}
+
+MediaSourceHandle::~MediaSourceHandle() = default;
+
+Ref<DetachedMediaSourceHandle> MediaSourceHandle::detach()
+{
+    return adoptRef(*new MediaSourceHandle(*this));
 }
 
 }
