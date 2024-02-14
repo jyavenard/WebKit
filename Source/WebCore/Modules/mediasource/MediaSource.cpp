@@ -163,6 +163,13 @@ private:
             parent->setLogIdentifier(identifier);
         });
     }
+
+    const Logger* logger() const
+    {
+        if (!m_parent || m_isMainThread)
+            return nullptr;
+        return &m_parent->logger();
+    }
 #endif
 
     WeakPtr<MediaSource> m_parent;
@@ -192,10 +199,9 @@ MediaSource::MediaSource(ScriptExecutionContext& context)
     , m_sourceBuffers(SourceBufferList::create(scriptExecutionContext()))
     , m_activeSourceBuffers(SourceBufferList::create(scriptExecutionContext()))
 #if !RELEASE_LOG_DISABLED
-    , m_logger(downcast<Document>(context).logger())
+    , m_logger(logger(context))
 #endif
 {
-    ASSERT(isMainThread());
 }
 
 MediaSource::~MediaSource()
@@ -203,6 +209,24 @@ MediaSource::~MediaSource()
     ALWAYS_LOG(LOGIDENTIFIER);
     ASSERT(isClosed());
 }
+
+#if !RELEASE_LOG_DISABLED
+Ref<Logger> MediaSource::logger(ScriptExecutionContext& context)
+{
+    if (RefPtr document = dynamicDowncast<Document>(context))
+        return document->logger();
+
+    Ref logger = Logger::create(this);
+    logger->addObserver(*this);
+    return logger;
+}
+
+void MediaSource::didLogMessage(const WTFLogChannel&, WTFLogLevel, Vector<JSONLogValue>&&)
+{
+    // FIXME: Add logging for when MediaSource is running in worker.
+}
+
+#endif
 
 void MediaSource::setPrivateAndOpen(Ref<MediaSourcePrivate>&& mediaSourcePrivate)
 {

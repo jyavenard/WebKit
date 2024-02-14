@@ -70,6 +70,7 @@ class MediaSource
     , public URLRegistrable
 #if !RELEASE_LOG_DISABLED
     , private LoggerHelper
+    , private Logger::Observer
 #endif
 {
     WTF_MAKE_ISO_ALLOCATED(MediaSource);
@@ -140,6 +141,9 @@ public:
     const char* logClassName() const final { return "MediaSource"; }
     WTFLogChannel& logChannel() const final;
     void setLogIdentifier(const void*);
+
+    Ref<Logger> logger(ScriptExecutionContext&);
+    void didLogMessage(const WTFLogChannel&, WTFLogLevel, Vector<JSONLogValue>&&) final;
 #endif
 
     virtual bool isManaged() const { return false; }

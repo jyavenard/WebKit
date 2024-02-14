@@ -83,7 +83,7 @@ MediaSourcePrivateRemote::MediaSourcePrivateRemote(GPUProcessConnection& gpuProc
     , m_mimeTypeCache(mimeTypeCache)
     , m_mediaPlayerPrivate(mediaPlayerPrivate)
 #if !RELEASE_LOG_DISABLED
-    , m_logger(mediaPlayerPrivate.mediaPlayerLogger())
+    , m_logger(client.logger() ? *client.logger() : mediaPlayerPrivate.mediaPlayerLogger())
     , m_logIdentifier(mediaPlayerPrivate.mediaPlayerLogIdentifier())
 #endif
 {
