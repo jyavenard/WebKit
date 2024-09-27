@@ -47,6 +47,7 @@ private:
     bool isStreamingContent() const final;
     bool attachToElement(WeakPtr<HTMLMediaElement>&&) final;
     void detachFromElement() final;
+    void elementShuttingDown() final;
     void openIfDeferredOpen() final;
     bool isManaged() const final;
     void setAsSrcObject(bool) final;
