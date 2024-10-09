@@ -64,28 +64,50 @@ struct MediaRecorderPrivateOptions;
 class WEBCORE_EXPORT MediaRecorderPrivateWriter : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<MediaRecorderPrivateWriter, WTF::DestructionThread::Main> {
 public:
     static RefPtr<MediaRecorderPrivateWriter> create(bool hasAudio, bool hasVideo, const MediaRecorderPrivateOptions&);
-    ~MediaRecorderPrivateWriter();
+    virtual ~MediaRecorderPrivateWriter() = default;
+    virtual bool initialize(const MediaRecorderPrivateOptions&) = 0;
 
-    void appendVideoFrame(VideoFrame&);
-    void appendAudioSampleBuffer(const PlatformAudioData&, const AudioStreamDescription&, const WTF::MediaTime&, size_t);
-    void stopRecording();
-    void fetchData(CompletionHandler<void(RefPtr<FragmentedSharedBuffer>&&, double)>&&);
+    virtual void appendVideoFrame(VideoFrame&) = 0;
+    virtual void appendAudioSampleBuffer(const PlatformAudioData&, const AudioStreamDescription&, const WTF::MediaTime&, size_t) = 0;
+    virtual void stopRecording() = 0;
+    virtual void fetchData(CompletionHandler<void(RefPtr<FragmentedSharedBuffer>&&, double)>&&) = 0;
 
-    void pause();
-    void resume();
+    virtual void pause() = 0;
+    virtual void resume() = 0;
 
-    void appendData(std::span<const uint8_t>);
+    virtual void appendData(std::span<const uint8_t>) = 0;
 
-    const String& mimeType() const;
-    unsigned audioBitRate() const;
-    unsigned videoBitRate() const;
+    virtual const String& mimeType() const = 0;
+    virtual unsigned audioBitRate() const = 0;
+    virtual unsigned videoBitRate() const = 0;
 
-    void close();
+    virtual void close() = 0;
+};
+
+class MediaRecorderPrivateWriterAVFObjC : public MediaRecorderPrivateWriter {
+public:
+    static Ref<MediaRecorderPrivateWriter> create(bool hasAudio, bool hasVideo);
+    ~MediaRecorderPrivateWriterAVFObjC();
 
 private:
-    MediaRecorderPrivateWriter(bool hasAudio, bool hasVideo);
+    MediaRecorderPrivateWriterAVFObjC(bool hasAudio, bool hasVideo);
+    bool initialize(const MediaRecorderPrivateOptions&) final;
 
-    bool initialize(const MediaRecorderPrivateOptions&);
+    void appendVideoFrame(VideoFrame&) final;
+    void appendAudioSampleBuffer(const PlatformAudioData&, const AudioStreamDescription&, const WTF::MediaTime&, size_t) final;
+    void stopRecording() final;
+    void fetchData(CompletionHandler<void(RefPtr<FragmentedSharedBuffer>&&, double)>&&) final;
+
+    void pause() final;
+    void resume() final;
+
+    void appendData(std::span<const uint8_t>) final;
+
+    const String& mimeType() const final;
+    unsigned audioBitRate() const final;
+    unsigned videoBitRate() const final;
+
+    void close() final;
 
     static void compressedVideoOutputBufferCallback(void*, CMBufferQueueTriggerToken);
     static void compressedAudioOutputBufferCallback(void*, CMBufferQueueTriggerToken);

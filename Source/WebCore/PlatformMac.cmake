@@ -721,6 +721,7 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/mediarecorder/MediaRecorderPrivateOptions.h
 
     platform/mediarecorder/cocoa/MediaRecorderPrivateWriterCocoa.h
+    platform/mediarecorder/cocoa/MediaRecorderPrivateWriterWebM.h
 
     platform/mediastream/AudioMediaStreamTrackRenderer.h
     platform/mediastream/RealtimeIncomingVideoSource.h

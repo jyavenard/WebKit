@@ -33,6 +33,7 @@
 #include <AudioToolbox/AudioFormat.h>
 #include <Foundation/Foundation.h>
 #include <algorithm>
+#include <pal/avfoundation/MediaTimeAVFoundation.h>
 #include <wtf/Scope.h>
 
 #import <pal/cf/AudioToolboxSoftLink.h>
@@ -44,18 +45,24 @@ namespace WebCore {
 
 RefPtr<AudioSampleBufferCompressor> AudioSampleBufferCompressor::create(CMBufferQueueTriggerCallback callback, void* callbackObject)
 {
-    Ref compressor = adoptRef(*new AudioSampleBufferCompressor());
+    return create(kAudioFormatMPEG4AAC, callback, callbackObject);
+}
+
+RefPtr<AudioSampleBufferCompressor> AudioSampleBufferCompressor::create(AudioFormatID format, CMBufferQueueTriggerCallback callback, void* callbackObject)
+{
+    Ref compressor = adoptRef(*new AudioSampleBufferCompressor(format));
     if (!compressor->initialize(callback, callbackObject))
         return nullptr;
     return compressor;
 }
 
-AudioSampleBufferCompressor::AudioSampleBufferCompressor()
+AudioSampleBufferCompressor::AudioSampleBufferCompressor(AudioFormatID format)
     : m_serialDispatchQueue(WorkQueue::create("com.apple.AudioSampleBufferCompressor"_s))
-    , m_lowWaterTime(PAL::CMTimeMakeWithSeconds(LOW_WATER_TIME_IN_SECONDS, 1000))
+    , m_lowWaterTime(format == kAudioFormatOpus ? PAL::kCMTimeInvalid : PAL::CMTimeMakeWithSeconds(LOW_WATER_TIME_IN_SECONDS, 1000))
     , m_currentNativePresentationTimeStamp(PAL::kCMTimeInvalid)
     , m_currentOutputPresentationTimeStamp(PAL::kCMTimeInvalid)
     , m_remainingPrimeDuration(PAL::kCMTimeInvalid)
+    , m_outputCodecType(format)
 {
 }
 
@@ -180,19 +187,17 @@ bool AudioSampleBufferCompressor::initAudioConverterForSourceFormatDescription(C
         return false;
     }
 
-    if (m_destinationFormat.mFormatID == kAudioFormatMPEG4AAC) {
-        bool shouldSetDefaultOutputBitRate = true;
-        if (m_outputBitRate) {
-            auto error = PAL::AudioConverterSetProperty(m_converter, kAudioConverterEncodeBitRate, sizeof(*m_outputBitRate), &m_outputBitRate.value());
-            RELEASE_LOG_ERROR_IF(error, MediaStream, "AudioSampleBufferCompressor setting kAudioConverterEncodeBitRate failed with %d", error);
-            shouldSetDefaultOutputBitRate = !!error;
-        }
-        if (shouldSetDefaultOutputBitRate) {
-            auto outputBitRate = defaultOutputBitRate(m_destinationFormat);
-            size = sizeof(outputBitRate);
-            if (auto error = PAL::AudioConverterSetProperty(m_converter, kAudioConverterEncodeBitRate, size, &outputBitRate))
-                RELEASE_LOG_ERROR(MediaStream, "AudioSampleBufferCompressor setting default kAudioConverterEncodeBitRate failed with %d", error);
-        }
+    bool shouldSetDefaultOutputBitRate = true;
+    if (m_outputBitRate) {
+        auto error = PAL::AudioConverterSetProperty(m_converter, kAudioConverterEncodeBitRate, sizeof(*m_outputBitRate), &m_outputBitRate.value());
+        RELEASE_LOG_ERROR_IF(error, MediaStream, "AudioSampleBufferCompressor setting kAudioConverterEncodeBitRate failed with %d", error);
+        shouldSetDefaultOutputBitRate = !!error;
+    }
+    if (shouldSetDefaultOutputBitRate) {
+        auto outputBitRate = defaultOutputBitRate(m_destinationFormat);
+        size = sizeof(outputBitRate);
+        if (auto error = PAL::AudioConverterSetProperty(m_converter, kAudioConverterEncodeBitRate, size, &outputBitRate))
+            RELEASE_LOG_ERROR(MediaStream, "AudioSampleBufferCompressor setting default kAudioConverterEncodeBitRate failed with %d", error);
     }
 
     if (!m_destinationFormat.mBytesPerPacket) {
