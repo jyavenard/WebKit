@@ -1213,7 +1213,7 @@ WebMParser::ConsumeFrameDataResult WebMParser::AudioTrackData::consumeFrameData(
                 return Skip(&reader, bytesRemaining);
             }
             OpusCookieContents cookieContents;
-            if (!parseOpusPrivateData(std::span { privateData }, *contiguousBuffer, cookieContents)) {
+            if (!parseOpusPrivateData(std::span { privateData }, contiguousBuffer->span(), cookieContents)) {
                 PARSER_LOG_ERROR_IF_POSSIBLE("Failed to parse Opus private data");
                 return Skip(&reader, bytesRemaining);
             }
@@ -1252,7 +1252,7 @@ WebMParser::ConsumeFrameDataResult WebMParser::AudioTrackData::consumeFrameData(
             PARSER_LOG_ERROR_IF_POSSIBLE("AudioTrackData::consumeFrameData: unable to create contiguous data block");
             return Skip(&reader, bytesRemaining);
         }
-        if (!parseOpusPrivateData(std::span { privateData }, *contiguousBuffer, cookieContents)
+        if (!parseOpusPrivateData(std::span { privateData }, contiguousBuffer->span(), cookieContents)
             || cookieContents.framesPerPacket != m_framesPerPacket
             || cookieContents.frameDuration != m_frameDuration) {
             PARSER_LOG_ERROR_IF_POSSIBLE("Opus frames-per-packet changed within a track; error");
@@ -1276,7 +1276,7 @@ WebMParser::ConsumeFrameDataResult WebMParser::AudioTrackData::consumeFrameData(
         parser().formatDescriptionChangedForTrackData(*this);
     }
 
-    MediaTime packetDuration = MediaTime(m_packetDurationParser->framesInPacket(*contiguousBuffer), downcast<AudioInfo>(formatDescription())->rate);
+    MediaTime packetDuration = MediaTime(m_packetDurationParser->framesInPacket(contiguousBuffer->span()), downcast<AudioInfo>(formatDescription())->rate);
     auto trimDuration = MediaTime::zeroTime();
     MediaTime localPresentationTime = presentationTime;
     if (m_remainingTrimDuration.isFinite() && m_remainingTrimDuration > MediaTime::zeroTime()) {
