@@ -105,7 +105,15 @@ MediaRecorderPrivateEncoder::MediaRecorderPrivateEncoder(bool hasAudio, bool has
 {
 }
 
-MediaRecorderPrivateEncoder::~MediaRecorderPrivateEncoder() = default;
+MediaRecorderPrivateEncoder::~MediaRecorderPrivateEncoder()
+{
+    if (m_file) {
+        fclose(m_file);
+        RELEASE_LOG_ERROR(MediaStream, "MediaRecorderPrivateEncoder::~MediaRecorderPrivateEncoder muxed %zu bytes", m_dataReceived);
+    } else {
+        RELEASE_LOG_ERROR(MediaStream, "MediaRecorderPrivateEncoder::~MediaRecorderPrivateEncoder muxed no data");
+    }
+}
 
 static String codecStringForMediaVideoCodecId(FourCharCode codec)
 {
@@ -220,13 +228,13 @@ void MediaRecorderPrivateEncoder::pause()
                         assertIsCurrent(queueSingleton());
                         if (protectedThis->m_pendingAudioFramePromise) {
                             protectedThis->m_pendingAudioFramePromise->second.reject();
-                            LOG(MediaStream, "MediaRecorderPrivateEncoder::pause rejecting m_pendingAudioFramePromise");
+                            RELEASE_LOG_ERROR(MediaStream, "MediaRecorderPrivateEncoder::pause rejecting m_pendingAudioFramePromise");
                             protectedThis->m_pendingAudioFramePromise.reset();
                         }
                     }
                 });
             }
-            LOG(MediaStream, "MediaRecorderPrivateEncoder::pause m_currentVideoDuration:%f", m_previousSegmentVideoDurationUs / 1000000.0);
+            RELEASE_LOG_ERROR(MediaStream, "MediaRecorderPrivateEncoder::pause m_currentVideoDuration:%f", m_previousSegmentVideoDurationUs / 1000000.0);
         }
     });
 }
@@ -241,7 +249,7 @@ void MediaRecorderPrivateEncoder::resume()
             m_currentVideoSegmentStartTime.reset();
             m_isPaused = false;
             m_needKeyFrame = true;
-            LOG(MediaStream, "MediaRecorderPrivateEncoder:resume at:%f", m_previousSegmentVideoDurationUs / 1000000.0);
+            RELEASE_LOG_ERROR(MediaStream, "MediaRecorderPrivateEncoder:resume at:%f", m_previousSegmentVideoDurationUs / 1000000.0);
         }
     });
 }
@@ -278,7 +286,7 @@ void MediaRecorderPrivateEncoder::appendAudioSampleBuffer(const PlatformAudioDat
     DisableMallocRestrictionsForCurrentThreadScope disableMallocRestrictions;
 
     if (m_currentStreamDescription != description) {
-        LOG(MediaStream, "description changed");
+        RELEASE_LOG_ERROR(MediaStream, "description changed");
         m_currentStreamDescription = toCAAudioStreamDescription(description);
         addRingBuffer(description);
         m_currentAudioSampleCount = 0;
@@ -314,7 +322,7 @@ void MediaRecorderPrivateEncoder::audioSamplesDescriptionChanged(const AudioStre
 
     CMFormatDescriptionRef newFormat = nullptr;
     if (auto error = PAL::CMAudioFormatDescriptionCreate(kCFAllocatorDefault, &description, 0, nullptr, 0, nullptr, nullptr, &newFormat)) {
-        RELEASE_LOG_ERROR(MediaStream, "MediaRecorderPrivateEncoder::audioSamplesAvailable: CMAudioFormatDescriptionCreate failed with %u", error);
+        RELEASE_LOG_ERROR(MediaStream, "MediaRecorderPrivateEncoder::audioSamplesDescriptionChanged: CMAudioFormatDescriptionCreate failed with %u", error);
         m_hadError = true;
         return;
     }
@@ -382,9 +390,6 @@ void MediaRecorderPrivateEncoder::audioSamplesAvailable(const MediaTime& time, s
 
     ASSERT(m_audioFormatDescription);
 
-    if (m_hadError)
-        return;
-
     auto* asbd = PAL::CMAudioFormatDescriptionGetStreamBasicDescription(m_audioFormatDescription.get());
     ASSERT(asbd);
     if (!asbd) {
@@ -392,6 +397,11 @@ void MediaRecorderPrivateEncoder::audioSamplesAvailable(const MediaTime& time, s
         m_hadError = true;
         return;
     }
+
+    RELEASE_LOG_ERROR(MediaStream, "MediaRecorderPrivateEncoder::audioSamplesAvailable: adding:%f to %f audio (hadError:%d)", time.toDouble(), (time + MediaTime(sampleCount, uint32_t(asbd->mSampleRate))).toDouble(), m_hadError);
+
+    if (m_hadError)
+        return;
 
     auto result = WebAudioBufferList::createWebAudioBufferListWithBlockBuffer(*asbd, sampleCount);
     if (!result) {
@@ -485,7 +495,7 @@ void MediaRecorderPrivateEncoder::appendVideoFrame(MediaTime sampleTime, Ref<Vid
     ASSERT(m_lastEnqueuedRawVideoFrame >= m_lastReceivedCompressedVideoFrame);
     m_lastEnqueuedRawVideoFrame = sampleTime;
     m_pendingVideoFrames.append({ WTFMove(frame), sampleTime });
-    LOG(MediaStream, "appendVideoFrame:enqueuing raw video frame:%f queue:%zu first:%f last:%f (received audio:%d)", sampleTime.toDouble(), m_pendingVideoFrames.size(), m_pendingVideoFrames.first().second.toDouble(), m_pendingVideoFrames.last().second.toDouble(), !!m_lastEnqueuedAudioTimeUs.load());
+    RELEASE_LOG_ERROR(MediaStream, "appendVideoFrame:enqueuing raw video frame:%f queue:%zu first:%f last:%f (received audio:%d)", sampleTime.toDouble(), m_pendingVideoFrames.size(), m_pendingVideoFrames.first().second.toDouble(), m_pendingVideoFrames.last().second.toDouble(), !!m_lastEnqueuedAudioTimeUs.load());
 
     encodePendingVideoFrames();
 }
@@ -493,6 +503,14 @@ void MediaRecorderPrivateEncoder::appendVideoFrame(MediaTime sampleTime, Ref<Vid
 void MediaRecorderPrivateEncoder::appendData(std::span<const uint8_t> data)
 {
     Locker locker { m_lock };
+
+    if (!m_file)
+        m_file = fopen("/tmp/video.webm", "w");
+
+    if (m_file)
+        fwrite(data.data(), data.size(), 1, m_file);
+
+    m_dataReceived += data.size();
 
     if (!m_dataBuffer.capacity())
         m_dataBuffer.reserveInitialCapacity(s_dataBufferSize);
@@ -573,11 +591,13 @@ void MediaRecorderPrivateEncoder::enqueueCompressedAudioSampleBuffers()
 
         for (Ref sample : MediaSampleAVFObjC::create(sampleBlock.get(), *m_audioTrackIndex)->divide()) {
             if (m_pendingAudioFramePromise && m_pendingAudioFramePromise->first <= sample->presentationEndTime()) {
+                RELEASE_LOG_ERROR(MediaStream, "enqueueCompressedAudioSampleBuffers: resolving m_pendingAudioFramePromise");
                 m_pendingAudioFramePromise->second.resolve();
                 m_pendingAudioFramePromise.reset();
             }
             if (!m_hasStartedAudibleAudioFrame && sample->duration())
                 m_hasStartedAudibleAudioFrame = true;
+            RELEASE_LOG_ERROR(MediaStream, "enqueueCompressedAudioSampleBuffers(): appending audio from:%f to %f (queue:%zu)", sample->presentationTime().toDouble(), sample->presentationEndTime().toDouble(), m_encodedAudioFrames.size());
             m_encodedAudioFrames.append(samplesBlockFromCMSampleBuffer(sample->sampleBuffer(), m_audioCompressedAudioInfo.get()));
         }
     }
@@ -622,7 +642,7 @@ Ref<GenericPromise> MediaRecorderPrivateEncoder::encodePendingVideoFrames()
             m_lastVideoKeyframeTime = frame.second;
             m_needKeyFrame = false;
         }
-        LOG(MediaStream, "encodePendingVideoFrames:encoding video frame:%f (us:%lld) kf:%d", frame.second.toDouble(), frame.second.toMicroseconds(), needVideoKeyframe);
+        RELEASE_LOG_ERROR(MediaStream, "encodePendingVideoFrames:encoding video frame:%f (us:%lld) kf:%d", frame.second.toDouble(), frame.second.toMicroseconds(), needVideoKeyframe);
         return Ref { *m_videoEncoder }->encode({ WTFMove(frame.first), frame.second.toMicroseconds(), { } }, needVideoKeyframe);
     } };
     VideoEncoder::EncodePromise::all(WTFMove(promises))->chainTo(WTFMove(producer));
@@ -692,7 +712,7 @@ void MediaRecorderPrivateEncoder::enqueueCompressedVideoFrame(VideoEncoder::Enco
         .flags = frame.isKeyFrame ? MediaSample::SampleFlags::IsSync : MediaSample::SampleFlags::None
     });
     m_encodedVideoFrames.append(makeUniqueRef<MediaSamplesBlock>(m_videoTrackInfo.get(), WTFMove(vector)));
-    LOG(MediaStream, "appendVideoFrame:Receiving compressed %svideo frame: queue:%zu first:%f last:%f", frame.isKeyFrame ? "keyframe " : "", m_encodedVideoFrames.size(), m_encodedVideoFrames.first()->presentationTime().toDouble(), m_encodedVideoFrames.last()->presentationTime().toDouble());
+    RELEASE_LOG_ERROR(MediaStream, "appendVideoFrame:Receiving compressed %svideo frame: queue:%zu first:%f last:%f", frame.isKeyFrame ? "keyframe " : "", m_encodedVideoFrames.size(), m_encodedVideoFrames.first()->presentationTime().toDouble(), m_encodedVideoFrames.last()->presentationTime().toDouble());
     partiallyFlushEncodedQueues();
 }
 
@@ -703,7 +723,7 @@ void MediaRecorderPrivateEncoder::partiallyFlushEncodedQueues()
     if (m_pendingFlush)
         return;
 
-    LOG(MediaStream, "partiallyFlushEncodedQueues: lastAudioReceived:%f audioqueue:%zu first:%f last:%f videoQueue:%zu first:%f (kf:%d) last:%f", lastEnqueuedAudioTime().toDouble(), m_encodedAudioFrames.size(), m_encodedAudioFrames.size() ? m_encodedAudioFrames.first()->presentationTime().toDouble() : 0, m_encodedAudioFrames.size() ? m_encodedAudioFrames.last()->presentationTime().toDouble() : 0, m_encodedVideoFrames.size(), m_encodedVideoFrames.size() ? m_encodedVideoFrames.first()->presentationTime().toDouble() : 0, m_encodedVideoFrames.size() ? m_encodedVideoFrames.first()->isSync() : 0, m_encodedVideoFrames.size() ? m_encodedVideoFrames.last()->presentationTime().toDouble() : 0);
+    RELEASE_LOG_ERROR(MediaStream, "partiallyFlushEncodedQueues: lastAudioReceived:%f audioqueue:%zu first:%f last:%f videoQueue:%zu first:%f (kf:%d) last:%f", lastEnqueuedAudioTime().toDouble(), m_encodedAudioFrames.size(), m_encodedAudioFrames.size() ? m_encodedAudioFrames.first()->presentationTime().toDouble() : 0, m_encodedAudioFrames.size() ? m_encodedAudioFrames.last()->presentationTime().toDouble() : 0, m_encodedVideoFrames.size(), m_encodedVideoFrames.size() ? m_encodedVideoFrames.first()->presentationTime().toDouble() : 0, m_encodedVideoFrames.size() ? m_encodedVideoFrames.first()->isSync() : 0, m_encodedVideoFrames.size() ? m_encodedVideoFrames.last()->presentationTime().toDouble() : 0);
 
     if (hasAudio())
         enqueueCompressedAudioSampleBuffers(); // compressedAudioOutputBufferCallback isn't always called when new frames are available. Force refresh
@@ -741,7 +761,7 @@ Ref<GenericPromise> MediaRecorderPrivateEncoder::waitForMatchingAudio(const Medi
     // It will be resolved once we receive the compressed audio sample in enqueueCompressedAudioSampleBuffers().
     m_pendingAudioFramePromise.emplace(std::min(m_lastRawVideoFrameReceived, videoFrame->presentationTime()), GenericPromise::Producer());
 
-    LOG(MediaStream, "MediaRecorderPrivateEncoder::waitForMatchingAudio waiting for audio:%f", videoFrame->presentationTime().toDouble());
+    RELEASE_LOG_ERROR(MediaStream, "MediaRecorderPrivateEncoder::waitForMatchingAudio waiting for audio:%f", videoFrame->presentationTime().toDouble());
 
     return m_pendingAudioFramePromise->second.promise();
 }
@@ -750,7 +770,7 @@ MediaTime MediaRecorderPrivateEncoder::flushToEndSegment(const MediaTime& flushT
 {
     assertIsCurrent(queueSingleton());
 
-    LOG(MediaStream, "MediaRecorderPrivateEncoder::flushToEndSegment(%f): lastAudioReceived:%f audioqueue:%zu first:%f last:%f videoQueue:%zu first:%f (kf:%d) last:%f", flushTime.toDouble(), lastEnqueuedAudioTime().toDouble(), m_encodedAudioFrames.size(), m_encodedAudioFrames.size() ? m_encodedAudioFrames.first()->presentationTime().toDouble() : 0, m_encodedAudioFrames.size() ? m_encodedAudioFrames.last()->presentationTime().toDouble() : 0, m_encodedVideoFrames.size(), m_encodedVideoFrames.size() ? m_encodedVideoFrames.first()->presentationTime().toDouble() : 0, m_encodedVideoFrames.size() ? m_encodedVideoFrames.first()->isSync() : 0, m_encodedVideoFrames.size() ? m_encodedVideoFrames.last()->presentationTime().toDouble() : 0);
+    RELEASE_LOG_ERROR(MediaStream, "MediaRecorderPrivateEncoder::flushToEndSegment(%f): lastAudioReceived:%f audioqueue:%zu first:%f last:%f videoQueue:%zu first:%f (kf:%d) last:%f", flushTime.toDouble(), lastEnqueuedAudioTime().toDouble(), m_encodedAudioFrames.size(), m_encodedAudioFrames.size() ? m_encodedAudioFrames.first()->presentationTime().toDouble() : 0, m_encodedAudioFrames.size() ? m_encodedAudioFrames.last()->presentationTime().toDouble() : 0, m_encodedVideoFrames.size(), m_encodedVideoFrames.size() ? m_encodedVideoFrames.first()->presentationTime().toDouble() : 0, m_encodedVideoFrames.size() ? m_encodedVideoFrames.first()->isSync() : 0, m_encodedVideoFrames.size() ? m_encodedVideoFrames.last()->presentationTime().toDouble() : 0);
 
     if (hasAudio())
         enqueueCompressedAudioSampleBuffers(); // compressedAudioOutputBufferCallback isn't always called when new frames are available. Force refresh
@@ -777,7 +797,7 @@ MediaTime MediaRecorderPrivateEncoder::flushToEndSegment(const MediaTime& flushT
         bool takeVideo = videoFrame && (!audioFrame || videoFrame->presentationTime() < audioFrame->presentationTime());
         auto& frame = takeVideo ? *videoFrame : *audioFrame;
         if (takeVideo && &frame == lastVideoKeyFrame) {
-            LOG(MediaStream, "flushToEndSegment: stopping prior video keyframe time:%f", frame.presentationTime().toDouble());
+            RELEASE_LOG_ERROR(MediaStream, "flushToEndSegment: stopping prior video keyframe time:%f", frame.presentationTime().toDouble());
             return frame.presentationTime();
         }
         // We are about to end the current segment and the next segment needs to start with a keyframe.
@@ -785,7 +805,7 @@ MediaTime MediaRecorderPrivateEncoder::flushToEndSegment(const MediaTime& flushT
         // while the current audio frame is playing.
         if (!takeVideo && videoFrame) {
             if ((videoFrame->presentationTime() <= frame.presentationEndTime()) && videoFrame == lastVideoKeyFrame) {
-                LOG(MediaStream, "flushToEndSegment: stopping prior audio containing video keyframe time:%f", frame.presentationTime().toDouble());
+                RELEASE_LOG_ERROR(MediaStream, "flushToEndSegment: stopping prior audio containing video keyframe time:%f", frame.presentationTime().toDouble());
                 return frame.presentationTime();
             }
         }
@@ -807,7 +827,7 @@ void MediaRecorderPrivateEncoder::flushAllEncodedQueues()
 {
     assertIsCurrent(queueSingleton());
 
-    LOG(MediaStream, "flushAllEncodedQueues: audioqueue:%zu first:%f last:%f videoQueue:%zu first:%f (kf:%d) last:%f", m_encodedAudioFrames.size(), m_encodedAudioFrames.size() ? m_encodedAudioFrames.first()->presentationTime().toDouble() : 0, m_encodedAudioFrames.size() ? m_encodedAudioFrames.last()->presentationTime().toDouble() : 0, m_encodedVideoFrames.size(), m_encodedVideoFrames.size() ? m_encodedVideoFrames.first()->presentationTime().toDouble() : 0, m_encodedVideoFrames.size() ? m_encodedVideoFrames.first()->isSync() : 0, m_encodedVideoFrames.size() ? m_encodedVideoFrames.last()->presentationTime().toDouble() : 0);
+    RELEASE_LOG_ERROR(MediaStream, "flushAllEncodedQueues: audioqueue:%zu first:%f last:%f videoQueue:%zu first:%f (kf:%d) last:%f", m_encodedAudioFrames.size(), m_encodedAudioFrames.size() ? m_encodedAudioFrames.first()->presentationTime().toDouble() : 0, m_encodedAudioFrames.size() ? m_encodedAudioFrames.last()->presentationTime().toDouble() : 0, m_encodedVideoFrames.size(), m_encodedVideoFrames.size() ? m_encodedVideoFrames.first()->presentationTime().toDouble() : 0, m_encodedVideoFrames.size() ? m_encodedVideoFrames.first()->isSync() : 0, m_encodedVideoFrames.size() ? m_encodedVideoFrames.last()->presentationTime().toDouble() : 0);
 
     if (hasAudio())
         enqueueCompressedAudioSampleBuffers(); // compressedAudioOutputBufferCallback isn't always called when new frames are available. Force refresh
@@ -838,7 +858,7 @@ void MediaRecorderPrivateEncoder::interleaveAndEnqueueNextFrame()
     if (frame->presentationTime() < m_lastMuxedSampleStartTime)
         RELEASE_LOG_ERROR(MediaStream, "interleaveAndEnqueueNextFrame: added %s (kf:%d) frame time:%f-%f (previous:%f type:%s) size:%zu with error", takeVideo ? "video" : "audio", frame->isSync(), frame->presentationTime().toDouble(), frame->presentationEndTime().toDouble(), m_lastMuxedSampleStartTime.toDouble(), m_lastMuxedSampleIsVideo ? "video" : "audio" , m_interleavedFrames.size());
     else
-        LOG(MediaStream, "interleaveAndEnqueueNextFrame: added %s (kf:%d) frame time:%f-%f (previous:%f type:%s) size:%zu", takeVideo ? "video" : "audio", frame->isSync(), frame->presentationTime().toDouble(), frame->presentationEndTime().toDouble(), m_lastMuxedSampleStartTime.toDouble(), m_lastMuxedSampleIsVideo ? "video" : "audio" , m_interleavedFrames.size());
+        RELEASE_LOG_ERROR(MediaStream, "interleaveAndEnqueueNextFrame: added %s (kf:%d) frame time:%f-%f (previous:%f type:%s) size:%zu", takeVideo ? "video" : "audio", frame->isSync(), frame->presentationTime().toDouble(), frame->presentationEndTime().toDouble(), m_lastMuxedSampleStartTime.toDouble(), m_lastMuxedSampleIsVideo ? "video" : "audio" , m_interleavedFrames.size());
     m_lastMuxedSampleStartTime = frame->presentationTime();
     m_lastMuxedSampleIsVideo = takeVideo;
     if (takeVideo) {
@@ -860,7 +880,7 @@ void MediaRecorderPrivateEncoder::stopRecording()
     if (m_isStopped)
         return;
 
-    LOG(MediaStream, "MediaRecorderPrivateEncoder::stopRecording");
+    RELEASE_LOG_ERROR(MediaStream, "MediaRecorderPrivateEncoder::stopRecording");
     m_isStopped = true;
 
     queueSingleton().dispatch([protectedThis = Ref { *this }, this] {
@@ -900,7 +920,7 @@ void MediaRecorderPrivateEncoder::stopRecording()
 
                 m_writerIsClosed = true;
 
-                LOG(MediaStream, "FlushPendingData::close writer time:%f", currentEndTime().toDouble());
+                RELEASE_LOG_ERROR(MediaStream, "FlushPendingData::close writer time:%f", currentEndTime().toDouble());
 
                 return m_writer->close();
             });
@@ -917,7 +937,7 @@ void MediaRecorderPrivateEncoder::fetchData(CompletionHandler<void(RefPtr<Fragme
         return flushPendingData(currentTime)->whenSettled(queueSingleton(), [protectedThis, this, completionHandler = WTFMove(completionHandler), currentTime]() mutable {
             assertIsCurrent(queueSingleton());
             Ref data = takeData();
-            LOG(MediaStream, "fetchData::returning data:%zu timeCode:%f time:%f", data->size(), m_timeCode, currentTime.toDouble());
+            RELEASE_LOG_ERROR(MediaStream, "fetchData::returning data:%zu timeCode:%f time:%f", data->size(), m_timeCode, currentTime.toDouble());
             callOnMainThread([completionHandler = WTFMove(completionHandler), data, timeCode = m_timeCode]() mutable {
                 completionHandler(WTFMove(data), timeCode);
             });
@@ -934,7 +954,7 @@ Ref<GenericPromise> MediaRecorderPrivateEncoder::flushPendingData(const MediaTim
 
     m_needKeyFrame = true;
 
-    LOG(MediaStream, "MediaRecorderPrivateEncoder::FlushPendingData upTo:%f", currentTime.toDouble());
+    RELEASE_LOG_ERROR(MediaStream, "MediaRecorderPrivateEncoder::FlushPendingData upTo:%f", currentTime.toDouble());
 
     Vector<Ref<GenericPromise>> promises;
     promises.reserveInitialCapacity(size_t(!!m_videoEncoder) + size_t(!!m_audioConverter) + 1);
@@ -942,7 +962,7 @@ Ref<GenericPromise> MediaRecorderPrivateEncoder::flushPendingData(const MediaTim
     if (m_videoEncoder)
         promises.append(Ref { *m_videoEncoder }->flush());
     if (RefPtr converter = audioConverter())
-        promises.append(m_isPaused ? converter->drain() : converter->flush());
+        promises.append(converter->flush());
 
     ASSERT(!m_pendingFlush, "flush are serialized");
     m_pendingFlush++;
@@ -973,7 +993,7 @@ Ref<GenericPromise> MediaRecorderPrivateEncoder::flushPendingData(const MediaTim
         // 4: We are paused.
         if (!m_isStopped && hasMuxedDataSinceEndSegment() && result
             && ((endMuxedTime - m_startSegmentTime >= m_minimumSegmentDuration) || m_isPaused)) {
-            LOG(MediaStream, "FlushPendingData::forceNewSegment at time:%f", endMuxedTime.toDouble());
+            RELEASE_LOG_ERROR(MediaStream, "FlushPendingData::forceNewSegment at time:%f", endMuxedTime.toDouble());
             m_nextVideoFrameMuxedShouldBeKeyframe = true;
             m_startSegmentTime = endMuxedTime;
             m_hasMuxedAudioFrameSinceEndSegment = false;

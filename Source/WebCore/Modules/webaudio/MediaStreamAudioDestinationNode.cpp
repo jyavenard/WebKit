@@ -69,6 +69,7 @@ MediaStreamAudioDestinationNode::~MediaStreamAudioDestinationNode()
 
 void MediaStreamAudioDestinationNode::process(size_t numberOfFrames)
 {
+    RELEASE_LOG_ERROR(MediaStream, "MediaStreamAudioDestinationNode::process numberOfFrames:%zu", numberOfFrames);
     m_source->consumeAudio(*input(0)->bus(), numberOfFrames);
 }
 

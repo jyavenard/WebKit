@@ -120,6 +120,7 @@ extern "C" {
     M(Layout) \
     M(Loading) \
     M(Media) \
+    M(MediaStream) \
     M(MemoryPressure) \
     M(ModelElement) \
     M(MouseHandling) \

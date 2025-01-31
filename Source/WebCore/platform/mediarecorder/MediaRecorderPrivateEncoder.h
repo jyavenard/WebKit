@@ -202,6 +202,8 @@ private:
     const bool m_hasVideo { false };
     const Ref<Listener> m_listener;
     std::unique_ptr<MediaRecorderPrivateWriter> m_writer; // Always set and immutable once initialize() has been called
+    FILE* m_file { nullptr };
+    size_t m_dataReceived { 0 };
 };
 
 } // namespace WebCore

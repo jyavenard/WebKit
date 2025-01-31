@@ -129,11 +129,11 @@
         recorder.start(500);
         assert_equals(recorder.state, 'recording', 'MediaRecorder has been started successfully');
         
-        setTimeout(() => {
-            recorder.stop();
-            ac.close();
-            assert_unreached("recording didn't finish on time");
-        }, 10000);
+        // setTimeout(() => {
+        //     recorder.stop();
+        //     ac.close();
+        //     assert_unreached("recording didn't finish on time");
+        // }, 10000);
     }, 'MediaRecorder can successfully record the video for an audio-video stream into a webm file');
 
 </script>

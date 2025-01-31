@@ -89,6 +89,7 @@ void RemoteAudioDestinationProxy::startRenderingThread()
     ASSERT(!m_renderThread);
 
     auto offThreadRendering = [this]() mutable {
+        RELEASE_LOG_ERROR(MediaStream, "RemoteAudioDestinationProxy::startRenderingThread starting");
         do {
             m_renderSemaphore.wait();
             if (m_shouldStopThread || !m_frameCount)
@@ -99,8 +100,9 @@ void RemoteAudioDestinationProxy::startRenderingThread()
 
             m_lastFrameCount = totalFrameCount;
             renderAudio(frameCount);
-
+            RELEASE_LOG_ERROR(MediaStream, "RemoteAudioDestinationProxy::startRenderingThread::renderAudio frameCount:%u", frameCount);
         } while (!m_shouldStopThread);
+        RELEASE_LOG_ERROR(MediaStream, "RemoteAudioDestinationProxy::startRenderingThread stopped");
     };
 
     // FIXME(263073): Coalesce compatible realtime threads together to render sequentially

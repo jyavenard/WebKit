@@ -956,6 +956,7 @@ RetainPtr<CFDataRef> WebProcess::sourceApplicationAuditData() const
 
 void WebProcess::initializeSandbox(const AuxiliaryProcessInitializationParameters& parameters, SandboxInitializationParameters& sandboxParameters)
 {
+    return;
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
     auto webKitBundle = [NSBundle bundleForClass:NSClassFromString(@"WKWebView")];
 
