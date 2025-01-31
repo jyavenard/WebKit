@@ -212,14 +212,20 @@ void MediaRecorderPrivateEncoder::pause()
     queueSingleton().dispatch([weakThis = ThreadSafeWeakPtr { *this }, this] {
         assertIsCurrent(queueSingleton());
         if (RefPtr protectedThis = weakThis.get()) {
-            // We can't wait for the pending audio frame anymore, continue with what's available, we will drain the audio decoder instead.
-            if (m_pendingAudioFramePromise)
-                m_pendingAudioFramePromise->second.reject();
-            m_pendingAudioFramePromise.reset();
-
             m_isPaused = true;
             m_previousSegmentVideoDurationUs = currentEndTime().toMicroseconds();
-
+            if (RefPtr converter = audioConverter()) {
+                converter->drain()->whenSettled(queueSingleton(), [weakThis] {
+                    if (RefPtr protectedThis = weakThis.get()) {
+                        assertIsCurrent(queueSingleton());
+                        if (protectedThis->m_pendingAudioFramePromise) {
+                            protectedThis->m_pendingAudioFramePromise->second.reject();
+                            LOG(MediaStream, "MediaRecorderPrivateEncoder::pause rejecting m_pendingAudioFramePromise");
+                            protectedThis->m_pendingAudioFramePromise.reset();
+                        }
+                    }
+                });
+            }
             LOG(MediaStream, "MediaRecorderPrivateEncoder::pause m_currentVideoDuration:%f", m_previousSegmentVideoDurationUs / 1000000.0);
         }
     });
