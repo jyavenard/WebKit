@@ -425,6 +425,7 @@ void MediaRecorderPrivateEncoder::appendVideoFrame(VideoFrame& frame)
                 // We take the time before m_previousSegmentVideoDurationUs is set so that the first frame will always appear to have a timestamp of 0 but with a longer duration.
                 nextVideoFrameTime = MediaTime(m_previousSegmentVideoDurationUs, 1000000);
             }
+            m_lastRawVideoFrameReceived = nextVideoFrameTime;
             appendVideoFrame(nextVideoFrameTime, WTFMove(frame));
         }
     });
@@ -732,7 +733,7 @@ Ref<GenericPromise> MediaRecorderPrivateEncoder::waitForMatchingAudio(const Medi
 
     // The audio frame matching the last video frame is still pending in the converter and requires more data to be produced.
     // It will be resolved once we receive the compressed audio sample in enqueueCompressedAudioSampleBuffers().
-    m_pendingAudioFramePromise.emplace(videoFrame->presentationTime(), GenericPromise::Producer());
+    m_pendingAudioFramePromise.emplace(std::min(m_lastRawVideoFrameReceived, videoFrame->presentationTime()), GenericPromise::Producer());
 
     LOG(MediaStream, "MediaRecorderPrivateEncoder::waitForMatchingAudio waiting for audio:%f", videoFrame->presentationTime().toDouble());
 
@@ -861,20 +862,25 @@ void MediaRecorderPrivateEncoder::stopRecording()
 
         m_isPaused = false;
 
-        // We don't need to wait for the pending audio frame anymore, the imminent call to AudioSampleBufferConverter::finish() will output all data.
-        if (m_pendingAudioFramePromise)
-            m_pendingAudioFramePromise->second.reject();
-        m_pendingAudioFramePromise.reset();
-    });
-
-    m_currentFlushOperations = Ref { m_currentFlushOperations }->whenSettled(queueSingleton(), [protectedThis = Ref { *this }, this] {
-        if (RefPtr converter = audioConverter())
-            converter->finish();
-
         {
             Locker locker { m_ringBuffersLock };
             m_ringBuffers.clear();
         }
+
+        if (RefPtr converter = audioConverter()) {
+            converter->finish()->whenSettled(queueSingleton(), [protectedThis = Ref { *this }, this] {
+                assertIsCurrent(queueSingleton());
+
+                if (m_pendingAudioFramePromise) {
+                    m_pendingAudioFramePromise->second.reject();
+                    RELEASE_LOG_ERROR(MediaStream, "MediaRecorderPrivateEncoder::stopRecording rejecting m_pendingAudioFramePromise");
+                }
+                m_pendingAudioFramePromise.reset();
+            });
+        }
+    });
+
+    m_currentFlushOperations = Ref { m_currentFlushOperations }->whenSettled(queueSingleton(), [protectedThis = Ref { *this }, this] {
         return flushPendingData(MediaTime::positiveInfiniteTime())->whenSettled(queueSingleton(), [protectedThis, this] {
             assertIsCurrent(queueSingleton());
             if (m_videoEncoder)
