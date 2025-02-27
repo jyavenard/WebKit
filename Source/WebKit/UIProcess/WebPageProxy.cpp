@@ -13709,6 +13709,12 @@ void WebPageProxy::videoControlsManagerDidChange()
         pageClient->videoControlsManagerDidChange();
 }
 
+void WebPageProxy::videosInElementFullscreenChanged()
+{
+    if (RefPtr pageClient = this->pageClient())
+        pageClient->videosInElementFullscreenChanged();
+}
+
 bool WebPageProxy::hasActiveVideoForControlsManager() const
 {
 #if ENABLE(VIDEO_PRESENTATION_MODE)

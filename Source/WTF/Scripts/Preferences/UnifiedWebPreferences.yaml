@@ -8214,6 +8214,21 @@ VerticalFormControlsEnabled:
       "PLATFORM(COCOA)": true
       default: false
 
+VideoFullsceenPrefersMostVisibleHeuristic:
+  type: bool
+  status: testable
+  category: media
+  humanReadableName: "Prefers most visible video in element fullscreen."
+  humanReadableDescription: "Prefers most visible video in element fullscreen."
+  condition: ENABLE(FULLSCREEN_API)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 VideoFullscreenRequiresElementFullscreen:
   type: bool
   status: embedder
@@ -8226,7 +8241,7 @@ VideoFullscreenRequiresElementFullscreen:
     WebCore:
       default: false
   sharedPreferenceForWebProcess: true
-      
+
 VideoPresentationManagerEnabled:
   type: bool
   status: embedder
