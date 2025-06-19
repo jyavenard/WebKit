@@ -241,11 +241,11 @@ SourceBufferParserAVFObjC::~SourceBufferParserAVFObjC()
     [m_delegate invalidate];
 }
 
-Expected<void, PlatformMediaError> SourceBufferParserAVFObjC::appendData(Segment&& segment, AppendFlags flags)
+Expected<void, PlatformMediaError> SourceBufferParserAVFObjC::appendData(Ref<const SharedBuffer>&& segment, AppendFlags flags)
 {
     INFO_LOG_IF_POSSIBLE(LOGIDENTIFIER);
-    auto sharedBuffer = segment.takeSharedBuffer();
-    auto nsData = sharedBuffer->makeContiguous()->createNSData();
+    Ref sharedBuffer = WTFMove(segment);
+    RetainPtr nsData = sharedBuffer->createNSData();
     if (m_parserStateWasReset || flags == AppendFlags::Discontinuity)
         [m_parser appendStreamData:nsData.get() withFlags:AVStreamDataParserStreamDataDiscontinuity];
     else
