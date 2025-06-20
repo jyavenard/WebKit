@@ -38,6 +38,7 @@
 #import <CoreMedia/CMFormatDescription.h>
 #import <pal/avfoundation/MediaTimeAVFoundation.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/Locker.h>
 #import <wtf/MainThread.h>
 #import <wtf/MediaTime.h>
 #import <wtf/NativePromise.h>

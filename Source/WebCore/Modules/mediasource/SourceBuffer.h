@@ -113,7 +113,7 @@ public:
     void removedFromMediaSource();
     using ComputeSeekPromise = SourceBufferPrivate::ComputeSeekPromise;
     Ref<ComputeSeekPromise> computeSeekTime(const SeekTarget&);
-    void seekToTime(const MediaTime&);
+    Ref<MediaPromise> seekToTime(const MediaTime&);
 
     bool hasVideo() const;
 

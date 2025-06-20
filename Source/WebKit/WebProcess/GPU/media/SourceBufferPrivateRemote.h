@@ -127,10 +127,9 @@ private:
     void setAppendWindowEnd(const MediaTime&) final;
     Ref<GenericPromise> setMaximumBufferSize(size_t) final;
     bool isBufferFullFor(uint64_t requiredSize) const final;
-    bool canAppend(uint64_t requiredSize) const final;
 
     Ref<ComputeSeekPromise> computeSeekTime(const WebCore::SeekTarget&) final;
-    void seekToTime(const MediaTime&) final;
+    Ref<WebCore::MediaPromise> seekToTime(const MediaTime&) final;
 
     void updateTrackIds(Vector<std::pair<TrackID, TrackID>>&&) final;
     uint64_t totalTrackBufferSizeInBytes() const final;
@@ -146,7 +145,6 @@ private:
     MediaTime minimumUpcomingPresentationTimeForTrackID(TrackID) final;
     void setMaximumQueueDepthForTrackID(TrackID, uint64_t) final;
 
-    void ensureOnDispatcherSync(Function<void()>&&);
     void ensureWeakOnDispatcher(Function<void(SourceBufferPrivateRemote&)>&&);
 
     template<typename T> void sendToProxy(T&& message);
@@ -169,7 +167,6 @@ private:
     bool isGPURunning() const { return !m_removed; }
     std::atomic<bool> m_removed { false };
 
-    mutable Lock m_lock;
     // We mirror some members from the base class, as we require them to be atomic.
     MediaTime m_timestampOffset WTF_GUARDED_BY_LOCK(m_lock);
     std::atomic<bool> m_isActive { false };

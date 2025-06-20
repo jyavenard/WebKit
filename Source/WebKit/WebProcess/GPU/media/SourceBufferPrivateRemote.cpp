@@ -59,14 +59,6 @@ WorkQueue& SourceBufferPrivateRemote::queueSingleton()
     return MediaSourcePrivateRemote::queueSingleton();
 }
 
-void SourceBufferPrivateRemote::ensureOnDispatcherSync(Function<void()>&& function)
-{
-    if (queueSingleton().isCurrent())
-        function();
-    else
-        queueSingleton().dispatchSync(WTFMove(function));
-}
-
 void SourceBufferPrivateRemote::ensureWeakOnDispatcher(Function<void(SourceBufferPrivateRemote&)>&& function)
 {
     auto weakWrapper = [function = WTFMove(function), weakThis = ThreadSafeWeakPtr(*this)] {
@@ -171,7 +163,8 @@ void SourceBufferPrivateRemote::setActive(bool active)
     // Called from the SourceBuffer's dispatcher
     m_isActive = true;
     ensureWeakOnDispatcher([active](auto& buffer) {
-        auto mediaSource = buffer.m_mediaSource.get();
+        assertIsCurrent(buffer.m_dispatcher.get());
+        RefPtr mediaSource = buffer.m_mediaSource.get();
         if (!mediaSource)
             return;
 
@@ -233,6 +226,9 @@ bool SourceBufferPrivateRemote::evictCodedFrames(uint64_t newDataSize, const Med
     }
 
     // FIXME: Uses a new Connection for remote playback, and not the main GPUProcessConnection's one.
+    Vector<PlatformTimeRanges> trackBufferRanges;
+    bool succeeded = false;
+
     callOnMainRunLoopAndWait([&] {
         auto gpuProcessConnection = m_gpuProcessConnection.get();
         if (!gpuProcessConnection || !isGPURunning())
@@ -240,17 +236,20 @@ bool SourceBufferPrivateRemote::evictCodedFrames(uint64_t newDataSize, const Med
 
         auto sendResult = gpuProcessConnection->connection().sendSync(Messages::RemoteSourceBufferProxy::EvictCodedFrames(newDataSize, currentTime), m_remoteSourceBufferIdentifier);
         if (sendResult.succeeded()) {
-            if (auto client = this->client()) {
-                Vector<PlatformTimeRanges> trackBufferRanges;
-                {
-                    Locker locker { m_lock };
-                    std::tie(trackBufferRanges, m_evictionData) = sendResult.takeReply();
-                }
-                client->sourceBufferPrivateBufferedChanged(trackBufferRanges);
-            }
+            succeeded = true;
+            Locker locker { m_lock };
+            std::tie(trackBufferRanges, m_evictionData) = sendResult.takeReply();
         }
     });
-    return isBufferFullFor(newDataSize);
+
+    if (succeeded) {
+        ensureWeakOnDispatcher([trackBufferRanges = WTFMove(trackBufferRanges)](auto& buffer) {
+            if (RefPtr client = buffer.client())
+                client->sourceBufferPrivateBufferedChanged(trackBufferRanges);
+        });
+        return isBufferFullFor(newDataSize);
+    }
+    return false;
 }
 
 void SourceBufferPrivateRemote::addTrackBuffer(TrackID trackId, RefPtr<MediaDescription>&&)
@@ -384,10 +383,14 @@ Ref<SourceBufferPrivate::ComputeSeekPromise> SourceBufferPrivateRemote::computeS
     });
 }
 
-void SourceBufferPrivateRemote::seekToTime(const MediaTime& time)
+Ref<MediaPromise> SourceBufferPrivateRemote::seekToTime(const MediaTime& time)
 {
-    ensureWeakOnDispatcher([time](auto& buffer) {
-        buffer.sendToProxy(Messages::RemoteSourceBufferProxy::SeekToTime(time));
+    return invokeAsync(m_dispatcher, [protectedThis = Ref { *this }, this, time] {
+        auto gpuProcessConnection = m_gpuProcessConnection.get();
+        if (!gpuProcessConnection || !isGPURunning())
+            return MediaPromise::createAndReject(PlatformMediaError::IPCError);
+
+        return sendWithPromisedReply<MediaPromiseConverter>(Messages::RemoteSourceBufferProxy::SeekToTime(time));
     });
 }
 
@@ -499,12 +502,16 @@ void SourceBufferPrivateRemote::MessageReceiver::sourceBufferPrivateBufferedChan
 
 void SourceBufferPrivateRemote::MessageReceiver::sourceBufferPrivateDidDropSample()
 {
+    assertIsCurrent(SourceBufferPrivateRemote::queueSingleton());
+
     if (auto client = this->client())
         client->sourceBufferPrivateDidDropSample();
 }
 
 void SourceBufferPrivateRemote::MessageReceiver::sourceBufferPrivateDidReceiveRenderingError(int64_t errorCode)
 {
+    assertIsCurrent(SourceBufferPrivateRemote::queueSingleton());
+
     if (auto client = this->client())
         client->sourceBufferPrivateDidReceiveRenderingError(errorCode);
 }
@@ -561,7 +568,7 @@ SourceBufferPrivateClient::InitializationSegment SourceBufferPrivateRemote::Mess
 
 uint64_t SourceBufferPrivateRemote::totalTrackBufferSizeInBytes() const
 {
-    return m_evictionData.contentSize;
+    return evictionData().contentSize;
 }
 
 void SourceBufferPrivateRemote::memoryPressure(const MediaTime& currentTime)
@@ -603,25 +610,19 @@ void SourceBufferPrivateRemote::setMaximumQueueDepthForTrackID(TrackID trackID, 
 
 bool SourceBufferPrivateRemote::isBufferFullFor(uint64_t requiredSize) const
 {
-    Locker locker { m_lock };
-
-    ALWAYS_LOG(LOGIDENTIFIER, "requiredSize:", requiredSize, " evictionData:", m_evictionData);
-
+    ALWAYS_LOG(LOGIDENTIFIER, "requiredSize:", requiredSize, " evictionData:", evictionData());
     return SourceBufferPrivate::isBufferFullFor(requiredSize);
-}
-
-bool SourceBufferPrivateRemote::canAppend(uint64_t requiredSize) const
-{
-    Locker locker { m_lock };
-
-    return SourceBufferPrivate::canAppend(requiredSize);
 }
 
 RefPtr<MediaPlayerPrivateRemote> SourceBufferPrivateRemote::player() const
 {
-    if (RefPtr mediaSource = m_mediaSource.get())
-        return downcast<MediaPlayerPrivateRemote>(mediaSource->player());
-    return nullptr;
+    RefPtr<MediaPlayerPrivateRemote> player;
+    ensureOnDispatcherSync([&] {
+        assertIsCurrent(m_dispatcher.get());
+        if (RefPtr mediaSource = m_mediaSource.get())
+            player = downcast<MediaPlayerPrivateRemote>(mediaSource->player());
+    });
+    return player;
 }
 
 void SourceBufferPrivateRemote::detach()

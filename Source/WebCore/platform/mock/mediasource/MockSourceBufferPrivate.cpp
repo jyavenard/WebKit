@@ -139,6 +139,8 @@ MockSourceBufferPrivate::~MockSourceBufferPrivate() = default;
 
 RefPtr<MockMediaSourcePrivate> MockSourceBufferPrivate::mediaSourcePrivate() const
 {
+    assertIsCurrent(m_dispatcher.get());
+
     return dynamicDowncast<MockMediaSourcePrivate>(m_mediaSource.get());
 }
 

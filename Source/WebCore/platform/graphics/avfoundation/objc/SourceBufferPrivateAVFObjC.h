@@ -107,7 +107,7 @@ public:
     void trackDidChangeEnabled(AudioTrackPrivate&, bool enabled);
 
     void willSeek();
-    void seekToTime(const MediaTime&) final;
+    Ref<MediaPromise> seekToTime(const MediaTime&) final;
     FloatSize naturalSize();
 
     const std::optional<TrackID>& protectedTrackID() const { return m_protectedTrackID; }

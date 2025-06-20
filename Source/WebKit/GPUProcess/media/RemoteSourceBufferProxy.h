@@ -116,7 +116,7 @@ private:
     void setAppendWindowEnd(const MediaTime&);
     void setMaximumBufferSize(size_t, CompletionHandler<void()>&&);
     void computeSeekTime(const WebCore::SeekTarget&, CompletionHandler<void(WebCore::SourceBufferPrivate::ComputeSeekPromise::Result&&)>&&);
-    void seekToTime(const MediaTime&);
+    void seekToTime(const MediaTime&, CompletionHandler<void(WebCore::MediaPromise::Result&&)>&&);
     void updateTrackIds(Vector<std::pair<TrackID, TrackID>>&&);
     void bufferedSamplesForTrackId(TrackID, CompletionHandler<void(WebCore::SourceBufferPrivate::SamplesPromise::Result&&)>&&);
     void enqueuedSamplesForTrackID(TrackID, CompletionHandler<void(WebCore::SourceBufferPrivate::SamplesPromise::Result&&)>&&);

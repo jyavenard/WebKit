@@ -473,9 +473,10 @@ void MediaSource::completeSeek()
 
 Ref<MediaPromise> MediaSource::seekToTime(const MediaTime& time)
 {
-    for (Ref sourceBuffer : m_activeSourceBuffers.get())
-        sourceBuffer->seekToTime(time);
-    return MediaPromise::createAndResolve();
+    Vector<Ref<MediaPromise>> seeks { m_activeSourceBuffers->size(), [&](size_t index) {
+        return m_activeSourceBuffers->item(index)->seekToTime(time);
+    } };
+    return MediaPromise::all(seeks);
 }
 
 PlatformTimeRanges MediaSource::seekable()

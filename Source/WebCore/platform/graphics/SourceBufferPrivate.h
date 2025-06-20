@@ -119,16 +119,16 @@ public:
 
     using ComputeSeekPromise = MediaTimePromise;
     WEBCORE_EXPORT virtual Ref<ComputeSeekPromise> computeSeekTime(const SeekTarget&);
-    WEBCORE_EXPORT virtual void seekToTime(const MediaTime&);
+    WEBCORE_EXPORT virtual Ref<MediaPromise> seekToTime(const MediaTime&);
     WEBCORE_EXPORT virtual void updateTrackIds(Vector<std::pair<TrackID, TrackID>>&& trackIdPairs);
 
     WEBCORE_EXPORT void setClient(SourceBufferPrivateClient&);
 
-    void setMediaSourceDuration(const MediaTime& duration) { m_mediaSourceDuration = duration; }
+    WEBCORE_EXPORT void setMediaSourceDuration(const MediaTime& duration);
 
     WEBCORE_EXPORT virtual bool isBufferFullFor(uint64_t requiredSize) const;
     WEBCORE_EXPORT virtual bool canAppend(uint64_t requiredSize) const;
-    SourceBufferEvictionData evictionData() const { return m_evictionData; }
+    WEBCORE_EXPORT SourceBufferEvictionData evictionData() const;
     WEBCORE_EXPORT Vector<PlatformTimeRanges> trackBuffersRanges() const;
 
     // Methods used by MediaSourcePrivate
@@ -175,6 +175,7 @@ protected:
     MediaTime mediaSourceDuration() const;
 
     WEBCORE_EXPORT void ensureOnDispatcher(Function<void()>&&) const;
+    WEBCORE_EXPORT void ensureOnDispatcherSync(NOESCAPE const Function<void()>&) const;
 
     using InitializationSegment = SourceBufferPrivateClient::InitializationSegment;
     WEBCORE_EXPORT void didReceiveInitializationSegment(InitializationSegment&&);
@@ -215,10 +216,11 @@ protected:
 
     WEBCORE_EXPORT RefPtr<SourceBufferPrivateClient> client() const;
 
-    ThreadSafeWeakPtr<MediaSourcePrivate> m_mediaSource { nullptr };
+    ThreadSafeWeakPtr<MediaSourcePrivate> m_mediaSource WTF_GUARDED_BY_CAPABILITY(m_dispatcher.get()) { nullptr };
     const Ref<GuaranteedSerialFunctionDispatcher> m_dispatcher; // SerialFunctionDispatcher the SourceBufferPrivate/MediaSourcePrivate
 
-    SourceBufferEvictionData m_evictionData;
+    mutable Lock m_lock;
+    SourceBufferEvictionData m_evictionData WTF_GUARDED_BY_LOCK(m_lock);
 
 private:
     MediaTime minimumBufferedTime() const;
@@ -239,24 +241,24 @@ private:
     void iterateTrackBuffers(NOESCAPE const Function<void(const TrackBuffer&)>&) const;
 
     using OperationPromise = NativePromise<void, PlatformMediaError, WTF::PromiseOption::Default | WTF::PromiseOption::NonExclusive>;
-    Ref<OperationPromise> protectedCurrentSourceBufferOperation() const;
+    Ref<OperationPromise> appendSourceBufferOperation(Function<Ref<OperationPromise>(const OperationPromise::Result&)>&&);
     Ref<MediaPromise> protectedCurrentAppendProcessing() const;
 
     bool m_hasAudio { false };
     bool m_hasVideo { false };
     bool m_isActive { false };
 
-    ThreadSafeWeakPtr<SourceBufferPrivateClient> m_client;
+    ThreadSafeWeakPtr<SourceBufferPrivateClient> m_client WTF_GUARDED_BY_CAPABILITY(m_dispatcher.get());
 
-    StdUnorderedMap<TrackID, UniqueRef<TrackBuffer>> m_trackBufferMap;
+    StdUnorderedMap<TrackID, UniqueRef<TrackBuffer>> m_trackBufferMap WTF_GUARDED_BY_CAPABILITY(m_dispatcher.get());
     SourceBufferAppendMode m_appendMode { SourceBufferAppendMode::Segments };
 
-    Ref<OperationPromise> m_currentSourceBufferOperation { OperationPromise::createAndResolve() };
+    Ref<OperationPromise> m_currentSourceBufferOperation WTF_GUARDED_BY_CAPABILITY(m_dispatcher.get()) { OperationPromise::createAndResolve() };
 
     bool m_shouldGenerateTimestamps { false };
     bool m_receivedFirstInitializationSegment { false };
     bool m_pendingInitializationSegmentForChangeType { false };
-    size_t m_abortCount { 0 };
+    std::atomic<size_t> m_abortCount { 0 };
 
     void processPendingMediaSamples();
     bool processMediaSample(SourceBufferPrivateClient&, Ref<MediaSample>&&);
@@ -268,20 +270,20 @@ private:
     void computeEvictionData(ComputeEvictionDataRule = ComputeEvictionDataRule::Default);
 
     using SamplesVector = Vector<Ref<MediaSample>>;
-    SamplesVector m_pendingSamples;
-    Ref<MediaPromise> m_currentAppendProcessing { MediaPromise::createAndResolve() };
+    SamplesVector m_pendingSamples WTF_GUARDED_BY_CAPABILITY(m_dispatcher.get());
+    Ref<MediaPromise> m_currentAppendProcessing WTF_GUARDED_BY_CAPABILITY(m_dispatcher.get()) { MediaPromise::createAndResolve() };
 
     MediaTime m_timestampOffset;
     MediaTime m_appendWindowStart { MediaTime::zeroTime() };
     MediaTime m_appendWindowEnd { MediaTime::positiveInfiniteTime() };
     MediaTime m_highestPresentationTimestamp;
-    MediaTime m_mediaSourceDuration { MediaTime::invalidTime() };
+    MediaTime m_mediaSourceDuration WTF_GUARDED_BY_CAPABILITY(m_dispatcher.get()) { MediaTime::invalidTime() };
 
     MediaTime m_groupStartTimestamp { MediaTime::invalidTime() };
     MediaTime m_groupEndTimestamp { MediaTime::zeroTime() };
 
     bool m_isMediaSourceEnded { false };
-    std::optional<InitializationSegment> m_lastInitializationSegment;
+    std::optional<InitializationSegment> m_lastInitializationSegment WTF_GUARDED_BY_CAPABILITY(m_dispatcher.get());
 };
 
 } // namespace WebCore

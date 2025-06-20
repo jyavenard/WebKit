@@ -55,7 +55,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteSourceBufferProxy);
 
 Ref<RemoteSourceBufferProxy> RemoteSourceBufferProxy::create(GPUConnectionToWebProcess& connectionToWebProcess, RemoteSourceBufferIdentifier identifier, Ref<SourceBufferPrivate>&& sourceBufferPrivate, RemoteMediaPlayerProxy& remoteMediaPlayerProxy)
 {
-    auto remoteSourceBufferProxy = adoptRef(*new RemoteSourceBufferProxy(connectionToWebProcess, identifier, WTFMove(sourceBufferPrivate), remoteMediaPlayerProxy));
+    Ref remoteSourceBufferProxy = adoptRef(*new RemoteSourceBufferProxy(connectionToWebProcess, identifier, WTFMove(sourceBufferPrivate), remoteMediaPlayerProxy));
     return remoteSourceBufferProxy;
 }
 
@@ -308,9 +308,9 @@ void RemoteSourceBufferProxy::computeSeekTime(const SeekTarget& target, Completi
     protectedSourceBufferPrivate()->computeSeekTime(target)->whenSettled(RunLoop::currentSingleton(), WTFMove(completionHandler));
 }
 
-void RemoteSourceBufferProxy::seekToTime(const MediaTime& time)
+void RemoteSourceBufferProxy::seekToTime(const MediaTime& time, CompletionHandler<void(MediaPromise::Result&&)>&& completionHandler)
 {
-    protectedSourceBufferPrivate()->seekToTime(time);
+    protectedSourceBufferPrivate()->seekToTime(time)->whenSettled(RunLoop::currentSingleton(), WTFMove(completionHandler));
 }
 
 void RemoteSourceBufferProxy::updateTrackIds(Vector<std::pair<TrackID, TrackID>>&& trackIdPairs)
