@@ -110,7 +110,7 @@ MediaPlayerPrivateMediaSourceAVFObjC::MediaPlayerPrivateMediaSourceAVFObjC(Media
     , m_logger(player->mediaPlayerLogger())
     , m_logIdentifier(player->mediaPlayerLogIdentifier())
     , m_videoLayerManager(makeUniqueRef<VideoLayerManagerObjC>(m_logger, m_logIdentifier))
-    , m_effectiveRateChangedListener(EffectiveRateChangedListener::create([weakThis = WeakPtr { *this }] {
+    , m_effectiveRateChangedListener(EffectiveRateChangedListener::create([weakThis = WeakPtr { *this }](double) {
         callOnMainThread([weakThis] {
             if (RefPtr protectedThis = weakThis.get())
                 protectedThis->effectiveRateChanged();

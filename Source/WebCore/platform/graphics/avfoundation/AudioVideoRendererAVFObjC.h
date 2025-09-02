@@ -45,6 +45,7 @@ OBJC_PROTOCOL(WebSampleBufferVideoRendering);
 
 namespace WebCore {
 
+class EffectiveRateChangedListener;
 class PixelBufferConformerCV;
 class VideoLayerManagerObjC;
 class VideoMediaSampleRenderer;
@@ -75,6 +76,7 @@ public:
 
     bool timeIsProgressing() const final;
     MediaTime currentTime() const final;
+    void notifyTimeReachedAndPaused(const MediaTime&, Function<void(const MediaTime&)>&&) final;
 
     void flush() final;
     void flushTrack(TrackIdentifier) final;
@@ -87,10 +89,9 @@ public:
     bool paused() const final;
     void setRate(double) final;
     double effectiveRate() const final;
-    void setDuration(MediaTime) final;
-    void notifyDurationReached(Function<void(const MediaTime&)>&&) final;
     void prepareToSeek() final;
     Ref<MediaTimePromise> seekTo(const MediaTime&) final;
+    void notifyEffectiveRateChanged(Function<void(double)>&&) final;
 
     // AudioInterface
     void setVolume(float) final;
@@ -212,13 +213,12 @@ private:
     const Ref<WebAVSampleBufferListener> m_listener;
 
     Function<void(PlatformMediaError)> m_errorCallback;
-    Function<void(const MediaTime&)> m_durationReachedCallback;
     Function<void()> m_firstFrameAvailableCallback;
     Function<void(const MediaTime&, double)> m_hasAvailableVideoFrameCallback;
     Function<void()> m_notifyWhenRequiresFlushToResume;
     Function<void()> m_renderingModeChangedCallback;
 
-    RetainPtr<id> m_durationObserver;
+    RetainPtr<id> m_currentTimeObserver;
     bool m_isPlaying { false };
     double m_rate { 1 };
 
@@ -264,6 +264,8 @@ private:
     // Video Frame metadata gathering
     RetainPtr<id> m_videoFrameMetadataGatheringObserver;
     MonotonicTime m_startupTime;
+
+    RefPtr<EffectiveRateChangedListener> m_effectiveRateChangedListener;
 
     std::unique_ptr<PixelBufferConformerCV> m_rgbConformer;
 

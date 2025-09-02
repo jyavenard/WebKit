@@ -126,9 +126,9 @@ public:
     virtual void stopRequestingMediaData(TrackIdentifier) = 0;
 
     virtual bool timeIsProgressing() const = 0;
+    virtual void notifyEffectiveRateChanged(Function<void(double)>&&) { }
     virtual MediaTime currentTime() const = 0;
-    virtual void setDuration(MediaTime) { }
-    virtual void notifyDurationReached(Function<void(const MediaTime&)>&&) = 0;
+    virtual void notifyTimeReachedAndPaused(const MediaTime&, Function<void(const MediaTime&)>&&) { }
 
     virtual void flush() = 0;
     virtual void flushTrack(TrackIdentifier) = 0;

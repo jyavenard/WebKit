@@ -68,7 +68,7 @@ static void timebaseEffectiveRateChangedCallback(CFNotificationCenterRef, void* 
         protectedListener->effectiveRateChanged();
 }
 
-EffectiveRateChangedListener::EffectiveRateChangedListener(Function<void()>&& callback, CMTimebaseRef timebase)
+EffectiveRateChangedListener::EffectiveRateChangedListener(Function<void(double)>&& callback, CMTimebaseRef timebase)
     : m_callback(WTFMove(callback))
     , m_objcAdapter(adoptNS([[WebEffectiveRateChangedListenerObjCAdapter alloc] initWithEffectiveRateChangedListener:*this]))
     , m_timebase(timebase)
@@ -84,7 +84,7 @@ EffectiveRateChangedListener::~EffectiveRateChangedListener()
 
 void EffectiveRateChangedListener::effectiveRateChanged()
 {
-    m_callback();
+    m_callback(PAL::CMTimebaseGetRate(m_timebase.get()));
 }
 
 void EffectiveRateChangedListener::stop()

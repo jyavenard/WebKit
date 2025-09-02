@@ -27,6 +27,7 @@
 #import "AudioVideoRendererAVFObjC.h"
 
 #import "AudioMediaStreamTrackRenderer.h"
+#import "EffectiveRateChangedListener.h"
 #import "LayoutRect.h"
 #import "Logging.h"
 #import "PixelBufferConformerCV.h"
@@ -94,10 +95,11 @@ AudioVideoRendererAVFObjC::AudioVideoRendererAVFObjC(const Logger& originalLogge
 
 AudioVideoRendererAVFObjC::~AudioVideoRendererAVFObjC()
 {
+    if (RefPtr rateChangeListener = std::exchange(m_effectiveRateChangedListener, { }))
+        rateChangeListener->stop();
     cancelSeekingPromiseIfNeeded();
-
-    if (m_durationObserver)
-        [m_synchronizer removeTimeObserver:m_durationObserver.get()];
+    if (m_currentTimeObserver)
+        [m_currentTimeObserver removeTimeObserver:m_currentTimeObserver.get()];
     if (m_timeJumpedObserver)
         [m_synchronizer removeTimeObserver:m_timeJumpedObserver.get()];
     if (m_videoFrameMetadataGatheringObserver)
@@ -377,39 +379,31 @@ double AudioVideoRendererAVFObjC::effectiveRate() const
     SUPPRESS_UNRETAINED_ARG return PAL::CMTimebaseGetRate([m_synchronizer timebase]);
 }
 
-void AudioVideoRendererAVFObjC::setDuration(MediaTime duration)
+void AudioVideoRendererAVFObjC::notifyTimeReachedAndPaused(const MediaTime& timeBoundary, Function<void(const MediaTime&)>&& callback)
 {
-    if (m_durationObserver)
-        [m_synchronizer removeTimeObserver:m_durationObserver.get()];
+    if (m_currentTimeObserver)
+        [m_synchronizer removeTimeObserver:m_currentTimeObserver.get()];
 
-    NSArray* times = @[[NSValue valueWithCMTime:PAL::toCMTime(duration)]];
+    NSArray* times = @[[NSValue valueWithCMTime:PAL::toCMTime(timeBoundary)]];
 
     auto logSiteIdentifier = LOGIDENTIFIER;
-    DEBUG_LOG(logSiteIdentifier, duration);
+    DEBUG_LOG(logSiteIdentifier, timeBoundary);
     UNUSED_PARAM(logSiteIdentifier);
 
     // False positive webkit.org/b/298037
-    SUPPRESS_UNRETAINED_ARG m_durationObserver = [m_synchronizer addBoundaryTimeObserverForTimes:times queue:NULL usingBlock:[weakThis = WeakPtr { *this }, duration, logSiteIdentifier] {
+    SUPPRESS_UNRETAINED_ARG m_currentTimeObserver = [m_synchronizer addBoundaryTimeObserverForTimes:times queue:NULL usingBlock:makeBlockPtr([weakThis = WeakPtr { *this }, timeBoundary, logSiteIdentifier, callback = WTFMove(callback)]() mutable {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return;
 
         MediaTime now = protectedThis->currentTime();
-        ALWAYS_LOG_WITH_THIS(protectedThis, logSiteIdentifier, "boundary time observer called, now = ", now);
+        ALWAYS_LOG_WITH_THIS(protectedThis, logSiteIdentifier, "boundary time observer called, now: ", now);
 
-        protectedThis->pause();
-        if (now < duration) {
-            ERROR_LOG_WITH_THIS(protectedThis, logSiteIdentifier, "ERROR: boundary time observer called before duration");
-            [protectedThis->m_synchronizer setRate:0 time:PAL::toCMTime(duration)];
-        }
-        if (protectedThis->m_durationReachedCallback)
-            protectedThis->m_durationReachedCallback(now);
-    }];
-}
+        // Experimentation shows that between the time the boundary time observer is called, the time have progressed by a few milliseconds. Re-adjust time. This seek doesn't require re-enqueuing/flushing.
+        [protectedThis->m_synchronizer setRate:0 time:PAL::toCMTime(timeBoundary)];
 
-void AudioVideoRendererAVFObjC::notifyDurationReached(Function<void(const MediaTime&)>&& callback)
-{
-    m_durationReachedCallback = WTFMove(callback);
+        callback(now);
+    }).get()];
 }
 
 void AudioVideoRendererAVFObjC::prepareToSeek()
@@ -461,6 +455,16 @@ Ref<MediaTimePromise> AudioVideoRendererAVFObjC::seekTo(const MediaTime& seekTim
 
     m_seekPromise.emplace();
     return m_seekPromise->promise();
+}
+
+void AudioVideoRendererAVFObjC::notifyEffectiveRateChanged(Function<void(double)>&& callback)
+{
+    // False positive see webkit.org/b/298024
+    SUPPRESS_UNRETAINED_ARG m_effectiveRateChangedListener = EffectiveRateChangedListener::create([callback = makeBlockPtr(WTFMove(callback))](double rate) mutable {
+        callOnMainThread([callback, rate] {
+            callback.get()(rate);
+        });
+    }, [m_synchronizer timebase]);
 }
 
 void AudioVideoRendererAVFObjC::setVolume(float volume)
