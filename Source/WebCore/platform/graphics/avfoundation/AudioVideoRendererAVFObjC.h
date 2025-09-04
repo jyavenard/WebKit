@@ -42,6 +42,7 @@ OBJC_CLASS AVSampleBufferDisplayLayer;
 OBJC_CLASS AVSampleBufferRenderSynchronizer;
 OBJC_CLASS AVSampleBufferVideoRenderer;
 OBJC_PROTOCOL(WebSampleBufferVideoRendering);
+typedef struct CF_BRIDGED_TYPE(id) __CVBuffer *CVPixelBufferRef;
 
 namespace WebCore {
 
@@ -87,8 +88,8 @@ public:
     void notifyWhenErrorOccurs(Function<void(PlatformMediaError)>&&) final;
 
     // SynchronizerInterface
-    void play() final;
-    void pause() final;
+    void play(std::optional<MonotonicTime>) final;
+    void pause(std::optional<MonotonicTime>) final;
     bool paused() const final;
     void setRate(double) final;
     double effectiveRate() const final;
@@ -180,6 +181,11 @@ private:
     void updateSpatialTrackingLabel();
 #endif
 
+    void setSynchronizerRate(float, std::optional<MonotonicTime>);
+    bool updateLastPixelBuffer();
+    void maybePurgeLastPixelBuffer();
+    void setNeedsPlaceholderImage(bool);
+
     bool isEnabledVideoTrackId(TrackIdentifier) const;
     bool hasSelectedVideo() const;
     void flushVideo();
@@ -232,6 +238,8 @@ private:
     RetainPtr<id> m_performTaskObserver;
     bool m_isPlaying { false };
     double m_rate { 1 };
+    RetainPtr<CVPixelBufferRef> m_lastPixelBuffer;
+    bool m_needsPlaceholderImage { false };
 
     float m_volume { 1 };
     bool m_muted { false };

@@ -91,7 +91,7 @@ AudioVideoRendererAVFObjC::AudioVideoRendererAVFObjC(const Logger& originalLogge
         m_isSynchronizerSeeking = false;
         maybeCompleteSeek();
     }];
-    [m_synchronizer setRate:0];
+    setSynchronizerRate(0, { });
 }
 
 AudioVideoRendererAVFObjC::~AudioVideoRendererAVFObjC()
@@ -374,19 +374,19 @@ void AudioVideoRendererAVFObjC::notifyWhenErrorOccurs(Function<void(PlatformMedi
 }
 
 // Synchronizer interface
-void AudioVideoRendererAVFObjC::play()
+void AudioVideoRendererAVFObjC::play(std::optional<MonotonicTime> hostTime)
 {
     ALWAYS_LOG(LOGIDENTIFIER, "m_rate: ", m_rate, " seeking: ", seeking());
     m_isPlaying = true;
     if (!seeking())
-        [m_synchronizer setRate:m_rate];
+        setSynchronizerRate(m_rate, hostTime);
 }
 
-void AudioVideoRendererAVFObjC::pause()
+void AudioVideoRendererAVFObjC::pause(std::optional<MonotonicTime> hostTime)
 {
     ALWAYS_LOG(LOGIDENTIFIER, "m_rate: ", m_rate);
     m_isPlaying = false;
-    [m_synchronizer setRate:0];
+    setSynchronizerRate(0, hostTime);
 }
 
 bool AudioVideoRendererAVFObjC::paused() const
@@ -496,7 +496,7 @@ void AudioVideoRendererAVFObjC::prepareToSeek()
 
     cancelSeekingPromiseIfNeeded();
     m_seekState = Preparing;
-    [m_synchronizer setRate:0];
+    setSynchronizerRate(0, { });
 }
 
 Ref<MediaTimePromise> AudioVideoRendererAVFObjC::seekTo(const MediaTime& seekTime)
@@ -919,7 +919,7 @@ void AudioVideoRendererAVFObjC::maybeCompleteSeek()
     }
     m_seekState = SeekCompleted;
     if (shouldBePlaying())
-        [m_synchronizer setRate:m_rate];
+        setSynchronizerRate(m_rate, { });
     else
         ALWAYS_LOG(LOGIDENTIFIER, "Not resuming playback, shouldBePlaying:false");
 
@@ -931,6 +931,16 @@ void AudioVideoRendererAVFObjC::maybeCompleteSeek()
 bool AudioVideoRendererAVFObjC::shouldBePlaying() const
 {
     return m_isPlaying && !seeking();
+}
+
+void AudioVideoRendererAVFObjC::setHasAvailableVideoFrame(bool hasAvailableVideoFrame)
+{
+    m_hasAvailableVideoFrame = hasAvailableVideoFrame;
+    if (m_hasAvailableVideoFrame) {
+        if (m_firstFrameAvailableCallback)
+            m_firstFrameAvailableCallback();
+        setNeedsPlaceholderImage(false);
+    }
 }
 
 std::optional<TracksRendererManager::TrackType> AudioVideoRendererAVFObjC::typeOf(TrackIdentifier trackId) const
@@ -1147,9 +1157,8 @@ Ref<GenericPromise> AudioVideoRendererAVFObjC::setVideoRenderer(WebSampleBufferV
     });
     videoRenderer->notifyFirstFrameAvailable([weakThis = WeakPtr { *this }](const MediaTime&, double) {
         if (RefPtr protectedThis = weakThis.get()) {
-            protectedThis->m_hasAvailableVideoFrame = true;
-            if (protectedThis->m_firstFrameAvailableCallback)
-                protectedThis->m_firstFrameAvailableCallback();
+            protectedThis->setNeedsPlaceholderImage(false);
+            protectedThis->setHasAvailableVideoFrame(true);
             protectedThis->maybeCompleteSeek();
         }
     });
@@ -1415,6 +1424,58 @@ void AudioVideoRendererAVFObjC::updateSpatialTrackingLabel()
 }
 #endif
 
+void AudioVideoRendererAVFObjC::setSynchronizerRate(float rate, std::optional<MonotonicTime> hostTime)
+{
+    if (hostTime) {
+        auto cmHostTime = PAL::CMClockMakeHostTimeFromSystemUnits(hostTime->toMachAbsoluteTime());
+        ALWAYS_LOG(LOGIDENTIFIER, "setting rate to: ", m_rate, " at host time: ", PAL::CMTimeGetSeconds(cmHostTime));
+        [m_synchronizer setRate:rate time:PAL::kCMTimeInvalid atHostTime:cmHostTime];
+    } else
+        [m_synchronizer setRate:rate];
+
+    // If we are pausing the synchronizer, update the last image to ensure we have something
+    // to display if and when the decoders are purged while in the background. And vice-versa,
+    // purge our retained images and pixel buffers when playing the synchronizer, to release that
+    // retained memory.
+    if (!rate)
+        updateLastPixelBuffer();
+    else
+        maybePurgeLastPixelBuffer();
+}
+
+bool AudioVideoRendererAVFObjC::updateLastPixelBuffer()
+{
+    RefPtr videoRenderer = m_videoRenderer;
+    if (!videoRenderer)
+        return false;
+    auto entry = videoRenderer->copyDisplayedPixelBuffer();
+    if (!entry.pixelBuffer)
+        return false;
+
+    INFO_LOG(LOGIDENTIFIER, "displayed pixelbuffer copied for time: ", entry.presentationTimeStamp);
+    m_lastPixelBuffer = WTFMove(entry.pixelBuffer);
+    return true;
+}
+
+void AudioVideoRendererAVFObjC::maybePurgeLastPixelBuffer()
+{
+    m_lastPixelBuffer = nullptr;
+}
+
+
+void AudioVideoRendererAVFObjC::setNeedsPlaceholderImage(bool needsPlaceholder)
+{
+    if (m_needsPlaceholderImage == needsPlaceholder)
+        return;
+    m_needsPlaceholderImage = needsPlaceholder;
+
+    if (m_needsPlaceholderImage)
+        [m_sampleBufferDisplayLayer setContents:(id)m_lastPixelBuffer.get()];
+    else
+        [m_sampleBufferDisplayLayer setContents:nil];
+}
+
+
 bool AudioVideoRendererAVFObjC::isEnabledVideoTrackId(TrackIdentifier trackId) const
 {
     return m_enabledVideoTrackId == trackId;
@@ -1428,7 +1489,9 @@ bool AudioVideoRendererAVFObjC::hasSelectedVideo() const
 void AudioVideoRendererAVFObjC::flushVideo()
 {
     ALWAYS_LOG(LOGIDENTIFIER);
-    m_hasAvailableVideoFrame = false;
+
+    setHasAvailableVideoFrame(false);
+
     // Flush may call immediately requestMediaDataWhenReady. Must clear m_readyToRequestVideoData before flushing renderer.
     m_readyToRequestVideoData = true;
     if (RefPtr videoRenderer = m_videoRenderer)
@@ -1457,6 +1520,7 @@ void AudioVideoRendererAVFObjC::notifyRequiresFlushToResume()
 {
     ALWAYS_LOG(LOGIDENTIFIER);
     m_readyToRequestVideoData = false;
+    setNeedsPlaceholderImage(true);
     if (m_notifyWhenRequiresFlushToResume)
         m_notifyWhenRequiresFlushToResume();
 }

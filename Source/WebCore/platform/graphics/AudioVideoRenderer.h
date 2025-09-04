@@ -97,8 +97,8 @@ public:
 class SynchronizerInterface {
 public:
     virtual ~SynchronizerInterface() = default;
-    virtual void play() = 0;
-    virtual void pause() = 0;
+    virtual void play(std::optional<MonotonicTime> hostTime = std::nullopt) = 0;
+    virtual void pause(std::optional<MonotonicTime> hostTime = std::nullopt) = 0;
     virtual bool paused() const = 0;
     virtual void setRate(double) = 0;
     virtual double effectiveRate() const = 0;
