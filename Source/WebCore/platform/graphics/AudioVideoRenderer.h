@@ -104,6 +104,7 @@ public:
     virtual double effectiveRate() const = 0;
     virtual void prepareToSeek() { }
     virtual Ref<MediaTimePromise> seekTo(const MediaTime&) = 0;
+    virtual bool seeking() const = 0;
 };
 
 enum class SamplesRendererTrackIdentifierType { };

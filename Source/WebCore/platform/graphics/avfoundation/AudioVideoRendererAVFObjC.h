@@ -96,6 +96,7 @@ public:
     void prepareToSeek() final;
     Ref<MediaTimePromise> seekTo(const MediaTime&) final;
     void notifyEffectiveRateChanged(Function<void(double)>&&) final;
+    bool seeking() const final;
 
     // AudioInterface
     void setVolume(float) final;
