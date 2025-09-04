@@ -234,8 +234,10 @@ bool AudioVideoRendererAVFObjC::isReadyForMoreSamples(TrackIdentifier trackId)
 
     switch (*type) {
     case TrackType::Video:
-        return isEnabledVideoTrackId(trackId) && protectedVideoRenderer()->isReadyForMoreMediaData();
+        return m_readyToRequestVideoData && isEnabledVideoTrackId(trackId) && protectedVideoRenderer()->isReadyForMoreMediaData();
     case TrackType::Audio:
+        if (!m_readyToRequestAudioData)
+            return false;
         if (RetainPtr audioRenderer = audioRendererFor(trackId))
             return [audioRenderer isReadyForMoreMediaData];
         return false;
