@@ -97,7 +97,8 @@ public:
     // AudioInterface
     void setVolume(float) final;
     void setMuted(bool) final;
-    void setPreservesPitch(bool) final;
+    void setPreservesPitchAndCorrectionAlgorithm(bool, std::optional<PitchCorrectionAlgorithm>) final;
+    void setAudioTimePitchAlgorithm(AVSampleBufferAudioRenderer *, NSString *) const;
 #if HAVE(AUDIO_OUTPUT_DEVICE_UNIQUE_ID)
     void setOutputDeviceId(const String&) final;
     void setOutputDeviceIdOnRenderer(AVSampleBufferAudioRenderer *);
@@ -226,7 +227,8 @@ private:
 
     float m_volume { 1 };
     bool m_muted { false };
-    bool m_preservePitch { true };
+    bool m_preservesPitch { true };
+    std::optional<PitchCorrectionAlgorithm> m_pitchCorrectionAlgorithm;
 #if HAVE(AUDIO_OUTPUT_DEVICE_UNIQUE_ID)
     String m_audioOutputDeviceId;
 #endif

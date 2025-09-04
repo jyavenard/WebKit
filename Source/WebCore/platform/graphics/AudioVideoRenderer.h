@@ -48,10 +48,11 @@ class VideoFrame;
 
 class AudioInterface {
 public:
+    using PitchCorrectionAlgorithm = MediaPlayerPitchCorrectionAlgorithm;
     virtual ~AudioInterface() = default;
     virtual void setVolume(float) = 0;
     virtual void setMuted(bool) = 0;
-    virtual void setPreservesPitch(bool) { }
+    virtual void setPreservesPitchAndCorrectionAlgorithm(bool, std::optional<PitchCorrectionAlgorithm>) { }
 #if HAVE(AUDIO_OUTPUT_DEVICE_UNIQUE_ID)
     virtual void setOutputDeviceId(const String&) { }
 #endif

@@ -113,7 +113,7 @@ MediaPlayerPrivateWebM::MediaPlayerPrivateWebM(MediaPlayer* player)
     if (RefPtr protectedPlayer = player) {
         m_renderer->setVolume(protectedPlayer->volume());
         m_renderer->setVolume(protectedPlayer->muted());
-        m_renderer->setPreservesPitch(protectedPlayer->preservesPitch());
+        m_renderer->setPreservesPitchAndCorrectionAlgorithm(protectedPlayer->preservesPitch(), protectedPlayer->pitchCorrectionAlgorithm());
 #if HAVE(AUDIO_OUTPUT_DEVICE_UNIQUE_ID)
         m_renderer->setOutputDeviceId(protectedPlayer->audioOutputDeviceIdOverride());
 #endif

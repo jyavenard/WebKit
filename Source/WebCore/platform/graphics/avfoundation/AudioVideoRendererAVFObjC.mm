@@ -30,6 +30,7 @@
 #import "EffectiveRateChangedListener.h"
 #import "LayoutRect.h"
 #import "Logging.h"
+#import "MediaSessionManagerCocoa.h"
 #import "PixelBufferConformerCV.h"
 #import "PlatformDynamicRangeLimitCocoa.h"
 #import "SpatialAudioExperienceHelper.h"
@@ -371,6 +372,11 @@ void AudioVideoRendererAVFObjC::setRate(double rate)
     if (m_rate == rate)
         return;
     m_rate = rate;
+    RetainPtr algorithm = MediaSessionManagerCocoa::audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(m_pitchCorrectionAlgorithm.value_or(PitchCorrectionAlgorithm::BestAllAround), m_preservesPitch, m_rate).createNSString();
+    applyOnAudioRenderers([&](auto* renderer) {
+        setAudioTimePitchAlgorithm(renderer, algorithm.get());
+    });
+
     if (shouldBePlaying())
         [m_synchronizer setRate:m_rate];
 }
@@ -510,13 +516,19 @@ void AudioVideoRendererAVFObjC::setMuted(bool muted)
     });
 }
 
-void AudioVideoRendererAVFObjC::setPreservesPitch(bool preservePitch)
+void AudioVideoRendererAVFObjC::setPreservesPitchAndCorrectionAlgorithm(bool preservesPitch, std::optional<PitchCorrectionAlgorithm> pitchCorrectionAlgorithm)
 {
-    m_preservePitch = preservePitch;
+    m_preservesPitch = preservesPitch;
+    m_pitchCorrectionAlgorithm = pitchCorrectionAlgorithm;
+    RetainPtr algorithm = MediaSessionManagerCocoa::audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(pitchCorrectionAlgorithm.value_or(PitchCorrectionAlgorithm::BestAllAround), preservesPitch, m_rate).createNSString();
     applyOnAudioRenderers([&](auto* renderer) {
-        // False positive see webkit.org/b/298035
-        SUPPRESS_UNRETAINED_ARG [renderer setAudioTimePitchAlgorithm:preservePitch ? AVAudioTimePitchAlgorithmSpectral : AVAudioTimePitchAlgorithmVarispeed];
+        setAudioTimePitchAlgorithm(renderer, algorithm.get());
     });
+}
+
+void AudioVideoRendererAVFObjC::setAudioTimePitchAlgorithm(AVSampleBufferAudioRenderer *audioRenderer, NSString *algorithm) const
+{
+    [audioRenderer setAudioTimePitchAlgorithm:algorithm];
 }
 
 #if HAVE(AUDIO_OUTPUT_DEVICE_UNIQUE_ID)
@@ -762,8 +774,8 @@ void AudioVideoRendererAVFObjC::addAudioRenderer(TrackIdentifier trackId)
 
     [renderer setMuted:m_muted];
     [renderer setVolume:m_volume];
-    // False positive see webkit.org/b/298035
-    SUPPRESS_UNRETAINED_ARG [renderer setAudioTimePitchAlgorithm:(m_preservePitch ? AVAudioTimePitchAlgorithmSpectral : AVAudioTimePitchAlgorithmVarispeed)];
+    RetainPtr algorithm = MediaSessionManagerCocoa::audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(m_pitchCorrectionAlgorithm.value_or(PitchCorrectionAlgorithm::BestAllAround), m_preservesPitch, m_rate).createNSString();
+    setAudioTimePitchAlgorithm(renderer.get(), algorithm.get());
 
 #if HAVE(AUDIO_OUTPUT_DEVICE_UNIQUE_ID)
     if (!!m_audioOutputDeviceId)
