@@ -1434,7 +1434,7 @@ void MediaPlayerPrivateWebM::isInFullscreenOrPictureInPictureChanged(bool isInFu
     m_renderer->isInFullscreenOrPictureInPictureChanged(isInFullscreenOrPictureInPicture);
 }
 
-AudioVideoRenderer::TrackIdentifier MediaPlayerPrivateWebM::trackIdentifierFor(TrackID trackID)
+AudioVideoRenderer::TrackIdentifier MediaPlayerPrivateWebM::trackIdentifierFor(TrackID trackID) const
 {
     auto it = m_trackIdentifiers.find(trackID);
     ASSERT(it != m_trackIdentifiers.end());

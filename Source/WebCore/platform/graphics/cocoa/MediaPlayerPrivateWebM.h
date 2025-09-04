@@ -267,7 +267,7 @@ private:
 #endif
 
     using TrackIdentifier = TracksRendererManager::TrackIdentifier;
-    TrackIdentifier trackIdentifierFor(TrackID);
+    TrackIdentifier trackIdentifierFor(TrackID) const;
 
     void setLayerRequiresFlush();
     void setAllTracksForReenqueuing();
