@@ -44,10 +44,6 @@
 #include <wtf/UniqueRef.h>
 #include <wtf/Vector.h>
 
-OBJC_CLASS AVSampleBufferAudioRenderer;
-OBJC_CLASS AVSampleBufferDisplayLayer;
-OBJC_CLASS AVSampleBufferRenderSynchronizer;
-OBJC_CLASS AVSampleBufferVideoRenderer;
 OBJC_PROTOCOL(WebSampleBufferVideoRendering);
 
 typedef struct CF_BRIDGED_TYPE(id) __CVBuffer *CVPixelBufferRef;

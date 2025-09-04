@@ -378,6 +378,10 @@ void MediaPlayerPrivateWebM::setPageIsVisible(bool visible)
     ALWAYS_LOG(LOGIDENTIFIER, visible);
     m_visible = visible;
     m_renderer->setIsVisible(visible);
+
+#if HAVE(SPATIAL_TRACKING_LABEL)
+    updateSpatialTrackingLabel();
+#endif
 }
 
 MediaTime MediaPlayerPrivateWebM::currentTime() const
