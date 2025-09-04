@@ -76,7 +76,8 @@ public:
 
     bool timeIsProgressing() const final;
     MediaTime currentTime() const final;
-    void notifyTimeReachedAndPaused(const MediaTime&, Function<void(const MediaTime&)>&&) final;
+    void notifyTimeReachedAndStall(const MediaTime&, Function<void(const MediaTime&)>&&) final;
+    void cancelTimeReachedAction() final;
     void performTaskAtTime(const MediaTime&, Function<void(const MediaTime&)>&&) final;
 
     void flush() final;

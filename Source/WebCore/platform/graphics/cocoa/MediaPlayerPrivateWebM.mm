@@ -722,7 +722,7 @@ void MediaPlayerPrivateWebM::setDuration(MediaTime duration)
     if (duration == m_duration)
         return;
 
-    m_renderer->notifyTimeReachedAndPaused(duration, [weakThis = ThreadSafeWeakPtr { *this }](const MediaTime&) {
+    m_renderer->notifyTimeReachedAndStall(duration, [weakThis = ThreadSafeWeakPtr { *this }](const MediaTime&) {
         if (RefPtr protectedThis = weakThis.get()) {
             protectedThis->m_renderer->pause();
             if (RefPtr player = protectedThis->m_player.get())

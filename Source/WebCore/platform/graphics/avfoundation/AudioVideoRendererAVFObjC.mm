@@ -99,8 +99,7 @@ AudioVideoRendererAVFObjC::~AudioVideoRendererAVFObjC()
     if (RefPtr rateChangeListener = std::exchange(m_effectiveRateChangedListener, { }))
         rateChangeListener->stop();
     cancelSeekingPromiseIfNeeded();
-    if (m_currentTimeObserver)
-        [m_currentTimeObserver removeTimeObserver:m_currentTimeObserver.get()];
+    cancelTimeReachedAction();
     if (m_timeJumpedObserver)
         [m_synchronizer removeTimeObserver:m_timeJumpedObserver.get()];
     if (m_videoFrameMetadataGatheringObserver)
@@ -413,19 +412,17 @@ double AudioVideoRendererAVFObjC::effectiveRate() const
     SUPPRESS_UNRETAINED_ARG return PAL::CMTimebaseGetRate([m_synchronizer timebase]);
 }
 
-void AudioVideoRendererAVFObjC::notifyTimeReachedAndPaused(const MediaTime& timeBoundary, Function<void(const MediaTime&)>&& callback)
+void AudioVideoRendererAVFObjC::notifyTimeReachedAndStall(const MediaTime& timeBoundary, Function<void(const MediaTime&)>&& callback)
 {
-    if (m_currentTimeObserver)
-        [m_synchronizer removeTimeObserver:m_currentTimeObserver.get()];
-
-    NSArray* times = @[[NSValue valueWithCMTime:PAL::toCMTime(timeBoundary)]];
+    cancelTimeReachedAction();
+    RetainPtr<NSArray> times = @[[NSValue valueWithCMTime:PAL::toCMTime(timeBoundary)]];
 
     auto logSiteIdentifier = LOGIDENTIFIER;
     DEBUG_LOG(logSiteIdentifier, timeBoundary);
     UNUSED_PARAM(logSiteIdentifier);
 
     // False positive webkit.org/b/298037
-    SUPPRESS_UNRETAINED_ARG m_currentTimeObserver = [m_synchronizer addBoundaryTimeObserverForTimes:times queue:NULL usingBlock:makeBlockPtr([weakThis = WeakPtr { *this }, timeBoundary, logSiteIdentifier, callback = WTFMove(callback)]() mutable {
+    SUPPRESS_UNRETAINED_ARG m_currentTimeObserver = [m_synchronizer addBoundaryTimeObserverForTimes:times.get() queue:NULL usingBlock:makeBlockPtr([weakThis = WeakPtr { *this }, timeBoundary, logSiteIdentifier, callback = WTFMove(callback)]() mutable {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return;
@@ -440,6 +437,12 @@ void AudioVideoRendererAVFObjC::notifyTimeReachedAndPaused(const MediaTime& time
     }).get()];
 }
 
+void AudioVideoRendererAVFObjC::cancelTimeReachedAction()
+{
+    if (RetainPtr observer = std::exchange(m_currentTimeObserver, nullptr))
+        [m_synchronizer removeTimeObserver:observer.get()];
+}
+
 void AudioVideoRendererAVFObjC::performTaskAtTime(const MediaTime& time, Function<void(const MediaTime&)>&& task)
 {
     if (m_performTaskObserver)
@@ -451,7 +454,7 @@ void AudioVideoRendererAVFObjC::performTaskAtTime(const MediaTime& time, Functio
     DEBUG_LOG(logSiteIdentifier, time);
     UNUSED_PARAM(logSiteIdentifier);
 
-    m_performTaskObserver = [m_synchronizer addBoundaryTimeObserverForTimes:times.get() queue:nil usingBlock:makeBlockPtr([weakThis = WeakPtr { *this }, task = WTFMove(task), logSiteIdentifier]() mutable {
+    m_performTaskObserver = [m_synchronizer addBoundaryTimeObserverForTimes:times.get() queue:NULL usingBlock:makeBlockPtr([weakThis = WeakPtr { *this }, task = WTFMove(task), logSiteIdentifier]() mutable {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return;
@@ -1188,7 +1191,8 @@ void AudioVideoRendererAVFObjC::sizeWillChangeAtTime(const MediaTime& time, cons
         return;
 
     NSArray* times = @[[NSValue valueWithCMTime:PAL::toCMTime(time)]];
-    RetainPtr<id> observer = [m_synchronizer addBoundaryTimeObserverForTimes:times queue:nil usingBlock:makeBlockPtr([weakThis = WeakPtr { *this }, time, size] {
+    // False positive webkit.org/b/298037
+    SUPPRESS_UNRETAINED_ARG RetainPtr<id> observer = [m_synchronizer addBoundaryTimeObserverForTimes:times queue:NULL usingBlock:makeBlockPtr([weakThis = WeakPtr { *this }, time, size] {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return;
