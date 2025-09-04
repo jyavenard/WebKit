@@ -138,10 +138,13 @@ public:
 private:
     AudioVideoRendererAVFObjC(const Logger&, uint64_t);
 
-    bool seeking() const;
     MediaTime clampTimeToLastSeekTime(const MediaTime&) const;
     void maybeCompleteSeek();
     bool shouldBePlaying() const;
+    bool allRenderersHaveAvailableSamples() const { return m_allRenderersHaveAvailableSamples; }
+    void updateAllRenderersHaveAvailableSamples();
+    void setHasAvailableVideoFrame(bool);
+    void setHasAvailableAudioSample(TrackIdentifier, bool);
 
     std::optional<TrackType> typeOf(TrackIdentifier) const;
 
@@ -257,10 +260,12 @@ private:
     RetainPtr<id> m_timeJumpedObserver;
     bool m_isSynchronizerSeeking { false };
     bool m_hasAvailableVideoFrame { false };
+    bool m_allRenderersHaveAvailableSamples { false };
 
     HashMap<TrackIdentifier, TrackType> m_trackTypes;
     HashMap<TrackIdentifier, RetainPtr<AVSampleBufferAudioRenderer>> m_audioRenderers;
     struct AudioTrackProperties {
+        bool hasAudibleSample { false };
         Function<void(TrackIdentifier, const MediaTime&)> callbackForReenqueuing;
     };
     HashMap<TrackIdentifier, AudioTrackProperties> m_audioTracksMap;

@@ -218,6 +218,8 @@ void AudioVideoRendererAVFObjC::enqueueSample(TrackIdentifier trackId, Ref<Media
         if (RetainPtr audioRenderer = audioRendererFor(trackId)) {
             RetainPtr cmSampleBuffer = sample->platformSample().sample.cmSampleBuffer;
             [audioRenderer enqueueSampleBuffer:cmSampleBuffer.get()];
+            if (!m_allRenderersHaveAvailableSamples && !sample->isNonDisplaying())
+                setHasAvailableAudioSample(trackId, true);
         }
         break;
     default:
@@ -930,7 +932,54 @@ void AudioVideoRendererAVFObjC::maybeCompleteSeek()
 
 bool AudioVideoRendererAVFObjC::shouldBePlaying() const
 {
-    return m_isPlaying && !seeking();
+    return m_isPlaying && !seeking() && allRenderersHaveAvailableSamples();
+}
+
+void AudioVideoRendererAVFObjC::setHasAvailableAudioSample(TrackIdentifier trackId, bool flag)
+{
+    if (m_allRenderersHaveAvailableSamples)
+        return;
+
+    auto it = m_audioTracksMap.find(trackId);
+    if (it == m_audioTracksMap.end())
+        return;
+    auto& properties = it->value;
+    if (properties.hasAudibleSample == flag)
+        return;
+    ALWAYS_LOG(LOGIDENTIFIER, flag);
+    properties.hasAudibleSample = flag;
+
+    updateAllRenderersHaveAvailableSamples();
+}
+
+void AudioVideoRendererAVFObjC::updateAllRenderersHaveAvailableSamples()
+{
+    bool allRenderersHaveAvailableSamples = true;
+
+    do {
+        if (m_enabledVideoTrackId && !m_hasAvailableVideoFrame) {
+            allRenderersHaveAvailableSamples = false;
+            break;
+        }
+
+        for (auto& properties : m_audioTracksMap.values()) {
+            if (!properties.hasAudibleSample) {
+                allRenderersHaveAvailableSamples = false;
+                break;
+            }
+        }
+    } while (0);
+
+    if (m_allRenderersHaveAvailableSamples == allRenderersHaveAvailableSamples)
+        return;
+
+    DEBUG_LOG(LOGIDENTIFIER, allRenderersHaveAvailableSamples);
+    m_allRenderersHaveAvailableSamples = allRenderersHaveAvailableSamples;
+
+    if (shouldBePlaying() && [m_synchronizer rate] != m_rate)
+        setSynchronizerRate(m_rate, { });
+    else if (!shouldBePlaying() && [m_synchronizer rate])
+        setSynchronizerRate(0, { });
 }
 
 void AudioVideoRendererAVFObjC::setHasAvailableVideoFrame(bool hasAvailableVideoFrame)
@@ -941,6 +990,7 @@ void AudioVideoRendererAVFObjC::setHasAvailableVideoFrame(bool hasAvailableVideo
             m_firstFrameAvailableCallback();
         setNeedsPlaceholderImage(false);
     }
+    updateAllRenderersHaveAvailableSamples();
 }
 
 std::optional<TracksRendererManager::TrackType> AudioVideoRendererAVFObjC::typeOf(TrackIdentifier trackId) const
@@ -1501,6 +1551,10 @@ void AudioVideoRendererAVFObjC::flushVideo()
 
 void AudioVideoRendererAVFObjC::flushAudio()
 {
+    for (auto& properties : m_audioTracksMap.values())
+        properties.hasAudibleSample = false;
+    updateAllRenderersHaveAvailableSamples();
+
     applyOnAudioRenderers([&](auto *renderer) {
         [renderer flush];
     });
@@ -1514,6 +1568,7 @@ void AudioVideoRendererAVFObjC::flushAudioTrack(TrackIdentifier trackId)
     if (!audioRenderer)
         return;
     [audioRenderer flush];
+    setHasAvailableAudioSample(trackId, false);
 }
 
 void AudioVideoRendererAVFObjC::notifyRequiresFlushToResume()
