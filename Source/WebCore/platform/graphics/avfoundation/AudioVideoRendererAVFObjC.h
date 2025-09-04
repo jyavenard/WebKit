@@ -114,7 +114,7 @@ public:
     void notifyWhenHasAvailableVideoFrame(Function<void(const MediaTime&, double)>&&) final;
     void notifyWhenRequiresFlushToResume(Function<void()>&&) final;
     void notifyRenderingModeChanged(Function<void()>&&) final;
-    void setMinimumUpcomingPresentationTime(const MediaTime&) final;
+    void expectMinimumUpcomingPresentationTime(const MediaTime&) final;
     void setShouldDisableHDR(bool) final;
     void setPlatformDynamicRangeLimit(const PlatformDynamicRangeLimit&) final;
     void setResourceOwner(const ProcessIdentity& resourceOwner) final { m_resourceOwner = resourceOwner; }

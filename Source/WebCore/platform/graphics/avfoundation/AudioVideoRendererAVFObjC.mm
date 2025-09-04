@@ -631,10 +631,12 @@ void AudioVideoRendererAVFObjC::notifyRenderingModeChanged(Function<void()>&& ca
     m_renderingModeChangedCallback = WTFMove(callback);
 }
 
-void AudioVideoRendererAVFObjC::setMinimumUpcomingPresentationTime(const MediaTime&)
+void AudioVideoRendererAVFObjC::expectMinimumUpcomingPresentationTime(const MediaTime& presentationTime)
 {
-    // TODO: need to pass it to the videoRenderer. Not needed yet for webm or when decompression session is always in use
-    ASSERT_NOT_REACHED();
+    if (!m_enabledVideoTrackId)
+        return;
+    ASSERT(m_videoRenderer);
+    m_videoRenderer->expectMinimumUpcomingSampleBufferPresentationTime(presentationTime);
 }
 
 void AudioVideoRendererAVFObjC::setShouldDisableHDR(bool shouldDisable)
