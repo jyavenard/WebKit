@@ -308,6 +308,26 @@ void AudioVideoRendererAVFObjC::stopRequestingMediaData(TrackIdentifier trackId)
     }
 }
 
+void AudioVideoRendererAVFObjC::notifyTrackNeedsReenqueuing(TrackIdentifier trackId, Function<void(TrackIdentifier, const MediaTime&)>&& callback)
+{
+    auto type = typeOf(trackId);
+    if (!type)
+        return;
+
+    switch (*type) {
+    case TrackType::Video:
+        break;
+    case TrackType::Audio:
+        ASSERT(m_audioTracksMap.contains(trackId));
+        if (auto it = m_audioTracksMap.find(trackId); it != m_audioTracksMap.end())
+            it->value.callbackForReenqueuing = WTFMove(callback);
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+        break;
+    }
+}
+
 void AudioVideoRendererAVFObjC::flush()
 {
     ALWAYS_LOG(LOGIDENTIFIER);
@@ -798,6 +818,9 @@ void AudioVideoRendererAVFObjC::addAudioRenderer(TrackIdentifier trackId)
 {
     ASSERT(!m_audioRenderers.contains(trackId));
 
+    if (!m_audioTracksMap.add(trackId, AudioTrackProperties()).isNewEntry)
+        return;
+
     RetainPtr renderer = [adoptNS(PAL::allocAVSampleBufferAudioRendererInstance()) init];
 
     if (!renderer) {
@@ -837,6 +860,8 @@ void AudioVideoRendererAVFObjC::removeAudioRenderer(TrackIdentifier trackId)
     if (RetainPtr audioRenderer = audioRendererFor(trackId)) {
         destroyAudioRenderer(audioRenderer);
         m_audioRenderers.remove(trackId);
+        ASSERT(m_audioTracksMap.contains(trackId));
+        m_audioTracksMap.remove(trackId);
     }
 }
 
@@ -1295,6 +1320,28 @@ void AudioVideoRendererAVFObjC::notifyError(PlatformMediaError error)
 void AudioVideoRendererAVFObjC::audioRendererDidReceiveError(AVSampleBufferAudioRenderer *, NSError *)
 {
     notifyError(PlatformMediaError::AudioDecodingError);
+}
+
+void AudioVideoRendererAVFObjC::audioRendererWasAutomaticallyFlushed(AVSampleBufferAudioRenderer *renderer, const CMTime& cmTime)
+{
+    std::optional<TrackIdentifier> trackId;
+    for (auto& pair : m_audioRenderers) {
+        if (pair.value.get() == renderer) {
+            trackId = pair.key;
+            break;
+        }
+    }
+    if (!trackId) {
+        ERROR_LOG(LOGIDENTIFIER, "Couldn't find track attached to Audio Renderer.");
+        return;
+    }
+    auto it = m_audioTracksMap.find(*trackId);
+    if (it == m_audioTracksMap.end())
+        return;
+    auto& properties = it->value;
+    if (!properties.callbackForReenqueuing)
+        return;
+    properties.callbackForReenqueuing(*trackId, PAL::toMediaTime(cmTime));
 }
 
 #if HAVE(SPATIAL_TRACKING_LABEL)

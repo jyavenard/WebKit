@@ -126,6 +126,7 @@ public:
     virtual bool isReadyForMoreSamples(TrackIdentifier) = 0;
     virtual void requestMediaDataWhenReady(TrackIdentifier, Function<void(TrackIdentifier)>&&) = 0;
     virtual void stopRequestingMediaData(TrackIdentifier) = 0;
+    virtual void notifyTrackNeedsReenqueuing(TrackIdentifier, Function<void(TrackIdentifier, const MediaTime&)>&&) { }
 
     virtual bool timeIsProgressing() const = 0;
     virtual void notifyEffectiveRateChanged(Function<void(double)>&&) { }

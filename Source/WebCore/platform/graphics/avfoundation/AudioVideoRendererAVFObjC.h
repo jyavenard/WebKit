@@ -73,6 +73,7 @@ public:
     bool isReadyForMoreSamples(TrackIdentifier) final;
     void requestMediaDataWhenReady(TrackIdentifier, Function<void(TrackIdentifier)>&&) final;
     void stopRequestingMediaData(TrackIdentifier) final;
+    void notifyTrackNeedsReenqueuing(TrackIdentifier, Function<void(TrackIdentifier, const MediaTime&)>&&) final;
 
     bool timeIsProgressing() const final;
     MediaTime currentTime() const final;
@@ -172,6 +173,7 @@ private:
     void notifyError(PlatformMediaError);
     // WebAVSampleBufferListenerClient
     void audioRendererDidReceiveError(AVSampleBufferAudioRenderer *, NSError *) final;
+    void audioRendererWasAutomaticallyFlushed(AVSampleBufferAudioRenderer *, const CMTime&) final;
 
 #if HAVE(SPATIAL_TRACKING_LABEL)
     void setSpatialTrackingInfo(bool prefersSpatialAudioExperience, SoundStageSize, const String& sceneIdentifier, const String& defaultLabel, const String& label) final;
@@ -249,6 +251,10 @@ private:
 
     HashMap<TrackIdentifier, TrackType> m_trackTypes;
     HashMap<TrackIdentifier, RetainPtr<AVSampleBufferAudioRenderer>> m_audioRenderers;
+    struct AudioTrackProperties {
+        Function<void(TrackIdentifier, const MediaTime&)> callbackForReenqueuing;
+    };
+    HashMap<TrackIdentifier, AudioTrackProperties> m_audioTracksMap;
     bool m_readyToRequestVideoData { true };
     bool m_readyToRequestAudioData { true };
     RetainPtr<AVSampleBufferDisplayLayer> m_sampleBufferDisplayLayer;
