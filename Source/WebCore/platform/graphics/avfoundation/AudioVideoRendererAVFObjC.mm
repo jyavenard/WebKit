@@ -104,6 +104,8 @@ AudioVideoRendererAVFObjC::~AudioVideoRendererAVFObjC()
         [m_synchronizer removeTimeObserver:m_timeJumpedObserver.get()];
     if (m_videoFrameMetadataGatheringObserver)
         [m_synchronizer removeTimeObserver:m_videoFrameMetadataGatheringObserver.get()];
+    if (m_performTaskObserver)
+        [m_synchronizer removeTimeObserver:m_performTaskObserver.get()];
 
     if (RefPtr videoRenderer = m_videoRenderer)
         videoRenderer->shutdown();
@@ -405,6 +407,31 @@ void AudioVideoRendererAVFObjC::notifyTimeReachedAndPaused(const MediaTime& time
         callback(now);
     }).get()];
 }
+
+void AudioVideoRendererAVFObjC::performTaskAtTime(const MediaTime& time, Function<void(const MediaTime&)>&& task)
+{
+    if (m_performTaskObserver)
+        [m_synchronizer removeTimeObserver:m_performTaskObserver.get()];
+
+    RetainPtr<NSArray> times = @[[NSValue valueWithCMTime:PAL::toCMTime(time)]];
+
+    auto logSiteIdentifier = LOGIDENTIFIER;
+    DEBUG_LOG(logSiteIdentifier, time);
+    UNUSED_PARAM(logSiteIdentifier);
+
+    m_performTaskObserver = [m_synchronizer addBoundaryTimeObserverForTimes:times.get() queue:nil usingBlock:makeBlockPtr([weakThis = WeakPtr { *this }, task = WTFMove(task), logSiteIdentifier]() mutable {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
+            return;
+
+        MediaTime now = protectedThis->currentTime();
+        ALWAYS_LOG_WITH_THIS(protectedThis, logSiteIdentifier, "boundary time observer called, now: ", now);
+
+        task(now);
+    }).get()];
+}
+
+
 
 void AudioVideoRendererAVFObjC::prepareToSeek()
 {

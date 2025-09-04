@@ -129,6 +129,7 @@ public:
     virtual void notifyEffectiveRateChanged(Function<void(double)>&&) { }
     virtual MediaTime currentTime() const = 0;
     virtual void notifyTimeReachedAndPaused(const MediaTime&, Function<void(const MediaTime&)>&&) { }
+    virtual void performTaskAtTime(const MediaTime&, Function<void(const MediaTime&)>&&) { }
 
     virtual void flush() = 0;
     virtual void flushTrack(TrackIdentifier) = 0;

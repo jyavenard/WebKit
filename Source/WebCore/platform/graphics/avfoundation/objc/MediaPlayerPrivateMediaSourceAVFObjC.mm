@@ -67,6 +67,7 @@
 #import <wtf/FileSystem.h>
 #import <wtf/MachSendRightAnnotated.h>
 #import <wtf/MainThread.h>
+#import <wtf/BlockPtr.h>
 #import <wtf/NativePromise.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/TZoneMallocInlines.h>
@@ -1767,16 +1768,15 @@ bool MediaPlayerPrivateMediaSourceAVFObjC::isCurrentPlaybackTargetWireless() con
 }
 #endif
 
-bool MediaPlayerPrivateMediaSourceAVFObjC::performTaskAtTime(WTF::Function<void()>&& task, const MediaTime& time)
+bool MediaPlayerPrivateMediaSourceAVFObjC::performTaskAtTime(WTF::Function<void(const MediaTime&)>&& task, const MediaTime& time)
 {
-    __block WTF::Function<void()> taskIn = WTFMove(task);
-
     if (m_performTaskObserver)
         [m_synchronizer removeTimeObserver:m_performTaskObserver.get()];
 
-    m_performTaskObserver = [m_synchronizer addBoundaryTimeObserverForTimes:@[[NSValue valueWithCMTime:PAL::toCMTime(time)]] queue:dispatch_get_main_queue() usingBlock:^{
-        taskIn();
-    }];
+    m_performTaskObserver = [m_synchronizer addBoundaryTimeObserverForTimes:@[[NSValue valueWithCMTime:PAL::toCMTime(time)]] queue:dispatch_get_main_queue() usingBlock:makeBlockPtr([weakThis = WeakPtr { *this }, task = WTFMove(task)] {
+        if (RefPtr protectedThis = weakThis.get())
+            task(protectedThis->currentTime());
+    }).get()];
     return true;
 }
 

@@ -77,6 +77,7 @@ public:
     bool timeIsProgressing() const final;
     MediaTime currentTime() const final;
     void notifyTimeReachedAndPaused(const MediaTime&, Function<void(const MediaTime&)>&&) final;
+    void performTaskAtTime(const MediaTime&, Function<void(const MediaTime&)>&&) final;
 
     void flush() final;
     void flushTrack(TrackIdentifier) final;
@@ -219,6 +220,7 @@ private:
     Function<void()> m_renderingModeChangedCallback;
 
     RetainPtr<id> m_currentTimeObserver;
+    RetainPtr<id> m_performTaskObserver;
     bool m_isPlaying { false };
     double m_rate { 1 };
 
