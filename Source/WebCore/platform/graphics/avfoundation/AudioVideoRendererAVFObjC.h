@@ -114,6 +114,7 @@ public:
     void notifyWhenHasAvailableVideoFrame(Function<void(const MediaTime&, double)>&&) final;
     void notifyWhenRequiresFlushToResume(Function<void()>&&) final;
     void notifyRenderingModeChanged(Function<void()>&&) final;
+    void notifySizeChanged(Function<void(const MediaTime&, FloatSize)>&&) final;
     void expectMinimumUpcomingPresentationTime(const MediaTime&) final;
     void setShouldDisableHDR(bool) final;
     void setPlatformDynamicRangeLimit(const PlatformDynamicRangeLimit&) final;
@@ -190,6 +191,9 @@ private:
     bool isUsingDecompressionSession() const;
     bool willUseDecompressionSessionIfNeeded() const;
 
+    void sizeWillChangeAtTime(const MediaTime&, const FloatSize&);
+    void flushPendingSizeChanges();
+
     // Logger
     const Logger& logger() const final { return m_logger.get(); }
     Ref<const Logger> protectedLogger() const { return logger(); }
@@ -219,6 +223,7 @@ private:
     Function<void(const MediaTime&, double)> m_hasAvailableVideoFrameCallback;
     Function<void()> m_notifyWhenRequiresFlushToResume;
     Function<void()> m_renderingModeChangedCallback;
+    Function<void(const MediaTime&, FloatSize)> m_sizeChangedCallback;
 
     RetainPtr<id> m_currentTimeObserver;
     RetainPtr<id> m_performTaskObserver;
@@ -253,6 +258,7 @@ private:
     IntSize m_presentationSize;
     bool m_shouldMaintainAspectRatio { true };
     std::optional<TrackIdentifier> m_enabledVideoTrackId;
+    std::optional<FloatSize> m_cachedSize;
     bool m_shouldDisableHDR { false };
     PlatformDynamicRangeLimit m_dynamicRangeLimit { PlatformDynamicRangeLimit::initialValueForVideos() };
     ProcessIdentity m_resourceOwner;
@@ -272,6 +278,7 @@ private:
     RefPtr<EffectiveRateChangedListener> m_effectiveRateChangedListener;
 
     std::unique_ptr<PixelBufferConformerCV> m_rgbConformer;
+    Deque<RetainPtr<id>> m_sizeChangeObservers;
 
 #if HAVE(SPATIAL_TRACKING_LABEL)
     bool m_prefersSpatialAudioExperience { false };

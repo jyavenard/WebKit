@@ -70,6 +70,7 @@ public:
     virtual void notifyWhenHasAvailableVideoFrame(Function<void(const MediaTime&, double)>&&) { }
     virtual void notifyWhenRequiresFlushToResume(Function<void()>&&) { }
     virtual void notifyRenderingModeChanged(Function<void()>&&) { }
+    virtual void notifySizeChanged(Function<void(const MediaTime&, FloatSize)>&&) { }
     virtual void expectMinimumUpcomingPresentationTime(const MediaTime&) { }
     virtual void setShouldDisableHDR(bool) { };
     virtual void setPlatformDynamicRangeLimit(const PlatformDynamicRangeLimit&) { };
