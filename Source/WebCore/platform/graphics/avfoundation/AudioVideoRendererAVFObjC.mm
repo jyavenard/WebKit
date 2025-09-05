@@ -107,11 +107,7 @@ AudioVideoRendererAVFObjC::~AudioVideoRendererAVFObjC()
     if (m_performTaskObserver)
         [m_synchronizer removeTimeObserver:m_performTaskObserver.get()];
 
-    if (RefPtr videoRenderer = m_videoRenderer)
-        videoRenderer->shutdown();
-
-    destroyLayer();
-    destroyVideoRenderer();
+    destroyVideoTrack();
     destroyAudioRenderers();
     m_listener->invalidate();
 }
@@ -135,9 +131,14 @@ TracksRendererManager::TrackIdentifier AudioVideoRendererAVFObjC::addTrack(Track
 {
     auto identifier = TrackIdentifier::generate();
     m_trackTypes.add(identifier, type);
+    ALWAYS_LOG(LOGIDENTIFIER, toString(identifier));
 
     switch (type) {
     case TrackType::Video:
+        if (m_videoRenderer) {
+            m_videoRenderer->stopRequestingMediaData();
+            m_videoRenderer->flush();
+        }
         m_enabledVideoTrackId = identifier;
         updateDisplayLayerIfNeeded();
         break;
@@ -153,17 +154,15 @@ TracksRendererManager::TrackIdentifier AudioVideoRendererAVFObjC::addTrack(Track
 
 void AudioVideoRendererAVFObjC::removeTrack(TrackIdentifier trackId)
 {
+    ALWAYS_LOG(LOGIDENTIFIER, toString(trackId));
     auto type = typeOf(trackId);
     if (!type)
         return;
 
     switch (*type) {
     case TrackType::Video:
-        if (isEnabledVideoTrackId(trackId)) {
-            m_enabledVideoTrackId.reset();
-            if (RefPtr videoRenderer = m_videoRenderer)
-                videoRenderer->stopRequestingMediaData();
-        }
+        if (isEnabledVideoTrackId(trackId))
+            destroyVideoTrack();
         break;
     case TrackType::Audio:
         removeAudioRenderer(trackId);
@@ -1360,6 +1359,17 @@ Ref<GenericPromise> AudioVideoRendererAVFObjC::stageVideoRenderer(WebSampleBuffe
         }
         return GenericPromise::createAndReject();
     });
+}
+
+void AudioVideoRendererAVFObjC::destroyVideoTrack()
+{
+    if (!m_videoRenderer)
+        return;
+    m_videoRenderer->shutdown();
+    destroyLayer();
+    destroyVideoRenderer();
+    m_enabledVideoTrackId.reset();
+    m_videoRenderer = nullptr;
 }
 
 AudioVideoRendererAVFObjC::AcceleratedVideoMode AudioVideoRendererAVFObjC::acceleratedVideoMode() const

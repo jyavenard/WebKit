@@ -168,6 +168,7 @@ private:
     Ref<GenericPromise> setVideoRenderer(WebSampleBufferVideoRendering *);
     void configureLayerOrVideoRenderer(WebSampleBufferVideoRendering *);
     Ref<GenericPromise> stageVideoRenderer(WebSampleBufferVideoRendering *);
+    void destroyVideoTrack();
 
     enum class AcceleratedVideoMode: uint8_t {
         Layer = 0,
