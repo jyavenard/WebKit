@@ -355,9 +355,40 @@ void MediaPlayerPrivateWebM::prepareToPlay()
 void MediaPlayerPrivateWebM::play()
 {
     ALWAYS_LOG(LOGIDENTIFIER);
+    playInternal();
+}
+
+void MediaPlayerPrivateWebM::pause()
+{
+    ALWAYS_LOG(LOGIDENTIFIER);
+    m_renderer->pause();
+}
+
+bool MediaPlayerPrivateWebM::paused() const
+{
+    return m_renderer->paused();
+}
+
+bool MediaPlayerPrivateWebM::playAtHostTime(const MonotonicTime& hostTime)
+{
+    ALWAYS_LOG(LOGIDENTIFIER);
+    playInternal(hostTime);
+    return true;
+}
+
+bool MediaPlayerPrivateWebM::pauseAtHostTime(const MonotonicTime& hostTime)
+{
+    ALWAYS_LOG(LOGIDENTIFIER);
+    m_renderer->pause(hostTime);
+    return true;
+}
+
+void MediaPlayerPrivateWebM::playInternal(std::optional<MonotonicTime> hostTime)
+{
+    ALWAYS_LOG(LOGIDENTIFIER);
     flushVideoIfNeeded();
 
-    m_renderer->play();
+    m_renderer->play(hostTime);
 
     if (!shouldBePlaying())
         return;
@@ -366,14 +397,20 @@ void MediaPlayerPrivateWebM::play()
         seekToTarget(SeekTarget::zero());
 }
 
-void MediaPlayerPrivateWebM::pause()
+bool MediaPlayerPrivateWebM::performTaskAtTime(Function<void(const MediaTime&)>&& task, const MediaTime& time)
 {
-    m_renderer->pause();
+    ALWAYS_LOG(LOGIDENTIFIER, time);
+
+    m_renderer->performTaskAtTime(time, WTFMove(task));
+    return true;
 }
 
-bool MediaPlayerPrivateWebM::paused() const
+void MediaPlayerPrivateWebM::audioOutputDeviceChanged()
 {
-    return m_renderer->paused();
+#if HAVE(AUDIO_OUTPUT_DEVICE_UNIQUE_ID)
+    if (RefPtr player = m_player.get())
+        m_renderer->setOutputDeviceId(player->audioOutputDeviceId());
+#endif
 }
 
 bool MediaPlayerPrivateWebM::timeIsProgressing() const

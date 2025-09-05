@@ -119,10 +119,17 @@ private:
     void pause() final;
     bool paused() const final;
     bool timeIsProgressing() const final;
+    void playInternal(std::optional<MonotonicTime> = std::nullopt);
 
-    WebSampleBufferVideoRendering *layerOrVideoRenderer() const;
+    bool supportsPlayAtHostTime() const final { return true; }
+    bool supportsPauseAtHostTime() const final { return true; }
+    bool playAtHostTime(const MonotonicTime&) final;
+    bool pauseAtHostTime(const MonotonicTime&) final;
 
     FloatSize naturalSize() const final { return m_naturalSize; }
+
+    bool performTaskAtTime(Function<void(const MediaTime&)>&&, const MediaTime&) final;
+    void audioOutputDeviceChanged() final;
 
     bool hasVideo() const final { return m_hasVideo; }
     bool hasAudio() const final { return m_hasAudio; }

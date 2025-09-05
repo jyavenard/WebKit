@@ -63,11 +63,11 @@
 #import <pal/spi/cocoa/AVFoundationSPI.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/BlockObjCExceptions.h>
+#import <wtf/BlockPtr.h>
 #import <wtf/Deque.h>
 #import <wtf/FileSystem.h>
 #import <wtf/MachSendRightAnnotated.h>
 #import <wtf/MainThread.h>
-#import <wtf/BlockPtr.h>
 #import <wtf/NativePromise.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/TZoneMallocInlines.h>

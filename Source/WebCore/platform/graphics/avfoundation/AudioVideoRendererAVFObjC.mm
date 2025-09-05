@@ -135,9 +135,9 @@ TracksRendererManager::TrackIdentifier AudioVideoRendererAVFObjC::addTrack(Track
 
     switch (type) {
     case TrackType::Video:
-        if (m_videoRenderer) {
-            m_videoRenderer->stopRequestingMediaData();
-            m_videoRenderer->flush();
+        if (RefPtr videoRenderer = m_videoRenderer) {
+            videoRenderer->stopRequestingMediaData();
+            videoRenderer->flush();
         }
         m_enabledVideoTrackId = identifier;
         updateDisplayLayerIfNeeded();
@@ -183,14 +183,14 @@ void AudioVideoRendererAVFObjC::enqueueSample(TrackIdentifier trackId, Ref<Media
 
     switch (*type) {
     case TrackType::Video: {
-        PlatformSample platformSample = sample->platformSample();
-        CMFormatDescriptionRef formatDescription = PAL::CMSampleBufferGetFormatDescription(platformSample.sample.cmSampleBuffer);
+        RetainPtr cmSampleBuffer = sample->platformSample().sample.cmSampleBuffer;
+        RetainPtr formatDescription = PAL::CMSampleBufferGetFormatDescription(cmSampleBuffer.get());
         ASSERT(formatDescription);
         if (!formatDescription) {
             ERROR_LOG(LOGIDENTIFIER, "Received sample with a null formatDescription. Bailing.");
             return;
         }
-        auto mediaType = PAL::CMFormatDescriptionGetMediaType(formatDescription);
+        auto mediaType = PAL::CMFormatDescriptionGetMediaType(formatDescription.get());
         ASSERT(mediaType == kCMMediaType_Video);
         if (mediaType != kCMMediaType_Video) {
             ERROR_LOG(LOGIDENTIFIER, "Expected sample of type: '", FourCC(kCMMediaType_Video), "', got: '", FourCC(mediaType), "'. Bailing.");
@@ -198,7 +198,7 @@ void AudioVideoRendererAVFObjC::enqueueSample(TrackIdentifier trackId, Ref<Media
         }
 
         if (m_sizeChangedCallback) {
-            FloatSize formatSize = FloatSize(PAL::CMVideoFormatDescriptionGetPresentationDimensions(formatDescription, true, true));
+            FloatSize formatSize = FloatSize(PAL::CMVideoFormatDescriptionGetPresentationDimensions(formatDescription.get(), true, true));
             if (m_cachedSize != formatSize) {
                 DEBUG_LOG(LOGIDENTIFIER, "size changed from: ", m_cachedSize.value_or(FloatSize()), " to: ", formatSize);
                 if (!std::exchange(m_cachedSize, formatSize))
@@ -483,7 +483,8 @@ void AudioVideoRendererAVFObjC::performTaskAtTime(const MediaTime& time, Functio
     DEBUG_LOG(logSiteIdentifier, time);
     UNUSED_PARAM(logSiteIdentifier);
 
-    m_performTaskObserver = [m_synchronizer addBoundaryTimeObserverForTimes:times.get() queue:NULL usingBlock:makeBlockPtr([weakThis = WeakPtr { *this }, task = WTFMove(task), logSiteIdentifier]() mutable {
+    // False positive webkit.org/b/298037
+    SUPPRESS_UNRETAINED_ARG m_performTaskObserver = [m_synchronizer addBoundaryTimeObserverForTimes:times.get() queue:NULL usingBlock:makeBlockPtr([weakThis = WeakPtr { *this }, task = WTFMove(task), logSiteIdentifier]() mutable {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return;
@@ -698,8 +699,8 @@ void AudioVideoRendererAVFObjC::expectMinimumUpcomingPresentationTime(const Medi
 {
     if (!m_enabledVideoTrackId)
         return;
-    ASSERT(m_videoRenderer);
-    m_videoRenderer->expectMinimumUpcomingSampleBufferPresentationTime(presentationTime);
+    if (RefPtr videoRenderer = m_videoRenderer)
+        videoRenderer->expectMinimumUpcomingSampleBufferPresentationTime(presentationTime);
 }
 
 void AudioVideoRendererAVFObjC::setShouldDisableHDR(bool shouldDisable)
@@ -1369,13 +1370,11 @@ Ref<GenericPromise> AudioVideoRendererAVFObjC::stageVideoRenderer(WebSampleBuffe
 
 void AudioVideoRendererAVFObjC::destroyVideoTrack()
 {
-    if (!m_videoRenderer)
-        return;
-    m_videoRenderer->shutdown();
+    if (RefPtr videoRenderer = std::exchange(m_videoRenderer, { }))
+        videoRenderer->shutdown();
     destroyLayer();
     destroyVideoRenderer();
     m_enabledVideoTrackId.reset();
-    m_videoRenderer = nullptr;
 }
 
 AudioVideoRendererAVFObjC::AcceleratedVideoMode AudioVideoRendererAVFObjC::acceleratedVideoMode() const
