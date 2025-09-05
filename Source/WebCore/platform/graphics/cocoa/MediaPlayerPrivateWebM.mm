@@ -886,13 +886,7 @@ void MediaPlayerPrivateWebM::enqueueSample(Ref<MediaSample>&& sample, TrackID tr
             ERROR_LOG(logSiteIdentifier, "Expected sample of type '", FourCC(kCMMediaType_Video), "', got '", FourCC(mediaType), "'. Bailing.");
             return;
         }
-
-        FloatSize formatSize = FloatSize(PAL::CMVideoFormatDescriptionGetPresentationDimensions(formatDescription, true, true));
-        if (formatSize != m_naturalSize)
-            setNaturalSize(formatSize);
-
         m_renderer->enqueueSample(trackIdentifierFor(trackId), WTFMove(sample));
-
         return;
     }
     // AVSampleBufferAudioRenderer will throw an un-documented exception if passed a sample
