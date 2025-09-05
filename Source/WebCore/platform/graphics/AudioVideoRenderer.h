@@ -102,6 +102,7 @@ public:
     virtual bool paused() const = 0;
     virtual void setRate(double) = 0;
     virtual double effectiveRate() const = 0;
+    virtual void stall() { };
     virtual void prepareToSeek() { }
     virtual Ref<MediaTimePromise> seekTo(const MediaTime&) = 0;
     virtual bool seeking() const = 0;

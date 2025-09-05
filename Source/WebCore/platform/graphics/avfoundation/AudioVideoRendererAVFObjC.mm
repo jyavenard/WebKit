@@ -91,7 +91,7 @@ AudioVideoRendererAVFObjC::AudioVideoRendererAVFObjC(const Logger& originalLogge
         m_isSynchronizerSeeking = false;
         maybeCompleteSeek();
     }];
-    setSynchronizerRate(0, { });
+    stall();
 }
 
 AudioVideoRendererAVFObjC::~AudioVideoRendererAVFObjC()
@@ -435,6 +435,12 @@ double AudioVideoRendererAVFObjC::effectiveRate() const
     SUPPRESS_UNRETAINED_ARG return PAL::CMTimebaseGetRate([m_synchronizer timebase]);
 }
 
+void AudioVideoRendererAVFObjC::stall()
+{
+    ALWAYS_LOG(LOGIDENTIFIER, "playing: ", m_isPlaying, " rate: ", m_rate);
+    setSynchronizerRate(0, { });
+}
+
 void AudioVideoRendererAVFObjC::notifyTimeReachedAndStall(const MediaTime& timeBoundary, Function<void(const MediaTime&)>&& callback)
 {
     cancelTimeReachedAction();
@@ -497,7 +503,7 @@ void AudioVideoRendererAVFObjC::prepareToSeek()
 
     cancelSeekingPromiseIfNeeded();
     m_seekState = Preparing;
-    setSynchronizerRate(0, { });
+    stall();
 }
 
 Ref<MediaTimePromise> AudioVideoRendererAVFObjC::seekTo(const MediaTime& seekTime)
@@ -978,7 +984,7 @@ void AudioVideoRendererAVFObjC::updateAllRenderersHaveAvailableSamples()
     if (shouldBePlaying() && [m_synchronizer rate] != m_rate)
         setSynchronizerRate(m_rate, { });
     else if (!shouldBePlaying() && [m_synchronizer rate])
-        setSynchronizerRate(0, { });
+        stall();
 }
 
 void AudioVideoRendererAVFObjC::setHasAvailableVideoFrame(bool hasAvailableVideoFrame)

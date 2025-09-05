@@ -93,6 +93,7 @@ public:
     bool paused() const final;
     void setRate(double) final;
     double effectiveRate() const final;
+    void stall() final;
     void prepareToSeek() final;
     Ref<MediaTimePromise> seekTo(const MediaTime&) final;
     void notifyEffectiveRateChanged(Function<void(double)>&&) final;
