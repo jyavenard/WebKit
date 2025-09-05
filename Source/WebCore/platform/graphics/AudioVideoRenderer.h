@@ -114,6 +114,9 @@ public:
 
     virtual ~TracksRendererManager() = default;
 
+    virtual void setPreferences(VideoMediaSampleRendererPreferences) { }
+    virtual void setHasProtectedVideoContent(bool) { }
+
     virtual TrackIdentifier addTrack(TrackType) = 0;
     virtual void removeTrack(TrackIdentifier) = 0;
 

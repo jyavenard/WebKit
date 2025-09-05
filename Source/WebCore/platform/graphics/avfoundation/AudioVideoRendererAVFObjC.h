@@ -61,6 +61,9 @@ public:
     ~AudioVideoRendererAVFObjC();
     WTF_ABSTRACT_THREAD_SAFE_REF_COUNTED_AND_CAN_MAKE_WEAK_PTR_IMPL;
 
+    void setPreferences(VideoMediaSampleRendererPreferences) final;
+    void setHasProtectedVideoContent(bool) final;
+
     // TracksRendererInterface
     TrackIdentifier addTrack(TrackType) final;
     void removeTrack(TrackIdentifier) final;
@@ -150,6 +153,7 @@ private:
     void destroyVideoLayerIfNeeded();
     void ensureVideoRenderer();
     void destroyVideoRenderer();
+    void configureHasAvailableVideoFrameCallbackIfNeeded();
     Ref<GenericPromise> setVideoRenderer(WebSampleBufferVideoRendering *);
     void configureLayerOrVideoRenderer(WebSampleBufferVideoRendering *);
     Ref<GenericPromise> stageVideoRenderer(WebSampleBufferVideoRendering *);
@@ -174,10 +178,14 @@ private:
     void flushVideo();
     void flushAudio();
     void flushAudioTrack(TrackIdentifier);
+    void notifyRequiresFlushToResume();
 
     void cancelSeekingPromiseIfNeeded();
 
     RefPtr<VideoMediaSampleRenderer> protectedVideoRenderer() const;
+    bool canUseDecompressionSession() const;
+    bool isUsingDecompressionSession() const;
+    bool willUseDecompressionSessionIfNeeded() const;
 
     // Logger
     const Logger& logger() const final { return m_logger.get(); }
@@ -244,6 +252,18 @@ private:
     bool m_shouldDisableHDR { false };
     PlatformDynamicRangeLimit m_dynamicRangeLimit { PlatformDynamicRangeLimit::initialValueForVideos() };
     ProcessIdentity m_resourceOwner;
+    VideoMediaSampleRendererPreferences m_preferences;
+    bool m_hasProtectedVideoContent { false };
+    struct RendererConfiguration {
+        bool canUseDecompressionSession = { false };
+        bool isProtected = { false };
+        bool operator==(const RendererConfiguration&) const = default;
+    };
+    RendererConfiguration m_previousRendererConfiguration;
+
+    // Video Frame metadata gathering
+    RetainPtr<id> m_videoFrameMetadataGatheringObserver;
+    MonotonicTime m_startupTime;
 
     std::unique_ptr<PixelBufferConformerCV> m_rgbConformer;
 
