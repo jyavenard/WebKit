@@ -165,6 +165,7 @@ private:
     DestinationColorSpace colorSpace() final;
 
     void setNaturalSize(FloatSize);
+    void effectiveRateChanged();
     void setHasAudio(bool);
     void setHasVideo(bool);
     void setHasAvailableVideoFrame(bool);
@@ -174,6 +175,7 @@ private:
     void setReadyState(MediaPlayer::ReadyState);
     void characteristicsChanged();
 
+    void setPreservesPitch(bool) final;
     void setPresentationSize(const IntSize&) final;
     bool supportsAcceleratedRendering() const final { return true; }
     void acceleratedRenderingStateChanged() final;
