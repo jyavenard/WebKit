@@ -46,6 +46,7 @@ typedef struct CF_BRIDGED_TYPE(id) __CVBuffer *CVPixelBufferRef;
 
 namespace WebCore {
 
+class CDMInstanceFairPlayStreamingAVFObjC;
 class EffectiveRateChangedListener;
 class PixelBufferConformerCV;
 class VideoLayerManagerObjC;
@@ -81,6 +82,8 @@ public:
     void notifyTimeReachedAndStall(const MediaTime&, Function<void(const MediaTime&)>&&) final;
     void cancelTimeReachedAction() final;
     void performTaskAtTime(const MediaTime&, Function<void(const MediaTime&)>&&) final;
+    void setTimeObserver(Seconds, Function<void(const MediaTime&)>&&) final;
+    void cancelTimeObserver();
 
     void flush() final;
     void flushTrack(TrackIdentifier) final;
@@ -189,6 +192,10 @@ private:
     void updateSpatialTrackingLabel();
 #endif
 
+#if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
+    void setCDMInstance(CDMInstance*) final;
+#endif
+
     void setSynchronizerRate(float, std::optional<MonotonicTime>);
     bool updateLastPixelBuffer();
     void maybePurgeLastPixelBuffer();
@@ -244,6 +251,9 @@ private:
 
     RetainPtr<id> m_currentTimeObserver;
     RetainPtr<id> m_performTaskObserver;
+    RetainPtr<id> m_timeChangedObserver;
+    Function<void(const MediaTime&)> m_currentTimeDidChangeCallback;
+
     bool m_isPlaying { false };
     double m_rate { 1 };
     RetainPtr<CVPixelBufferRef> m_lastPixelBuffer;
@@ -317,6 +327,9 @@ private:
     bool m_needsDestroyVideoLayer { false };
 #if ENABLE(LINEAR_MEDIA_PLAYER)
     RetainPtr<FigVideoTargetRef> m_videoTarget;
+#endif
+#if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
+    RefPtr<CDMInstanceFairPlayStreamingAVFObjC> m_cdmInstance;
 #endif
 };
 

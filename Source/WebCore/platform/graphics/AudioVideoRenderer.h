@@ -39,6 +39,7 @@
 
 namespace WebCore {
 
+class CDMInstance;
 class FloatRect;
 class LayoutRect;
 class PlatformDynamicRangeLimit;
@@ -136,6 +137,8 @@ public:
     virtual void notifyTimeReachedAndStall(const MediaTime&, Function<void(const MediaTime&)>&&) { }
     virtual void cancelTimeReachedAction() { }
     virtual void performTaskAtTime(const MediaTime&, Function<void(const MediaTime&)>&&) { }
+    // FIXME: This is only required to synchronize GPU time and CP time; should be removed in the future as it's just a workaround.
+    virtual void setTimeObserver(Seconds, Function<void(const MediaTime&)>&&) { }
 
     virtual void flush() = 0;
     virtual void flushTrack(TrackIdentifier) = 0;
@@ -146,6 +149,10 @@ public:
 
     using SoundStageSize = MediaPlayerSoundStageSize;
     virtual void setSpatialTrackingInfo(bool /* prefersSpatialAudioExperience */, SoundStageSize, const String& /* sceneIdentifier */, const String& /* defaultLabel */, const String& /* label */) { }
+
+#if ENABLE(ENCRYPTED_MEDIA)
+    virtual void setCDMInstance(CDMInstance*) { }
+#endif
 };
 
 class AudioVideoRenderer : public AudioInterface, public VideoInterface, public VideoFullscreenInterface, public SynchronizerInterface, public TracksRendererManager, public AbstractThreadSafeRefCountedAndCanMakeWeakPtr {

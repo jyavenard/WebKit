@@ -1279,7 +1279,7 @@ void VideoMediaSampleRenderer::videoRendererReadyForDisplayChanged(WebSampleBuff
     if (renderer != this->renderer() || !isReadyForDisplay)
         return;
     if (!isUsingDecompressionSession() && m_hasFirstFrameAvailableCallback)
-        m_hasFirstFrameAvailableCallback({ }, { });
+        m_hasFirstFrameAvailableCallback(currentTime(), (MonotonicTime::now() - m_startupTime).seconds());
 }
 
 void VideoMediaSampleRenderer::outputObscuredDueToInsufficientExternalProtectionChanged(bool obscured)

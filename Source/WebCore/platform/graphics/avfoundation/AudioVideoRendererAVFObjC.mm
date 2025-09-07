@@ -27,6 +27,7 @@
 #import "AudioVideoRendererAVFObjC.h"
 
 #import "AudioMediaStreamTrackRenderer.h"
+#import "CDMInstanceFairPlayStreamingAVFObjC.h"
 #import "EffectiveRateChangedListener.h"
 #import "FormatDescriptionUtilities.h"
 #import "LayoutRect.h"
@@ -52,6 +53,7 @@
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/WeakPtr.h>
 #import <wtf/WorkQueue.h>
+#import <wtf/cocoa/Entitlements.h>
 
 #pragma mark - Soft Linking
 #import "CoreVideoSoftLink.h"
@@ -63,9 +65,30 @@
 @property (assign, nonatomic) BOOL preventsAutomaticBackgroundingDuringVideoPlayback;
 @end
 
+@interface AVSampleBufferDisplayLayer (WebCoreSampleBufferKeySession) <AVContentKeyRecipient>
+@end
+
+@interface AVSampleBufferAudioRenderer (WebCoreSampleBufferKeySession) <AVContentKeyRecipient>
+@end
+
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(AudioVideoRendererAVFObjC);
+
+static inline bool supportsAttachContentKey()
+{
+    static bool supportsAttachContentKey;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        supportsAttachContentKey = WTF::processHasEntitlement("com.apple.developer.web-browser-engine.rendering"_s) || WTF::processHasEntitlement("com.apple.private.coremedia.allow-fps-attachment"_s);
+    });
+    return supportsAttachContentKey;
+}
+
+static inline bool shouldAddContentKeyRecipients()
+{
+    return !supportsAttachContentKey();
+}
 
 AudioVideoRendererAVFObjC::AudioVideoRendererAVFObjC(const Logger& originalLogger, uint64_t logSiteIdentifier)
     : m_logger(originalLogger)
@@ -101,13 +124,13 @@ AudioVideoRendererAVFObjC::~AudioVideoRendererAVFObjC()
         rateChangeListener->stop();
     cancelSeekingPromiseIfNeeded();
     cancelTimeReachedAction();
+    cancelTimeObserver();
     if (m_timeJumpedObserver)
         [m_synchronizer removeTimeObserver:m_timeJumpedObserver.get()];
     if (m_videoFrameMetadataGatheringObserver)
         [m_synchronizer removeTimeObserver:m_videoFrameMetadataGatheringObserver.get()];
     if (m_performTaskObserver)
         [m_synchronizer removeTimeObserver:m_performTaskObserver.get()];
-
     destroyVideoTrack();
     destroyAudioRenderers();
     m_listener->invalidate();
@@ -512,6 +535,33 @@ void AudioVideoRendererAVFObjC::performTaskAtTime(const MediaTime& time, Functio
     }).get()];
 }
 
+void AudioVideoRendererAVFObjC::setTimeObserver(Seconds interval, Function<void(const MediaTime&)>&& callback)
+{
+    m_currentTimeDidChangeCallback = WTFMove(callback);
+
+    cancelTimeObserver();
+
+    if (m_currentTimeDidChangeCallback) {
+        __block WeakPtr weakThis = *this;
+        // False positive webkit.org/b/298037
+        SUPPRESS_UNRETAINED_ARG m_timeChangedObserver = [m_synchronizer addPeriodicTimeObserverForInterval:PAL::toCMTime(MediaTime::createWithSeconds(interval)) queue:nullptr usingBlock:^(CMTime time) {
+            if (RefPtr protectedThis = weakThis.get()) {
+                if (!protectedThis->m_currentTimeDidChangeCallback)
+                    return;
+
+                auto clampedTime = CMTIME_IS_NUMERIC(time) ? protectedThis->clampTimeToLastSeekTime(PAL::toMediaTime(time)) : MediaTime::zeroTime();
+                protectedThis->m_currentTimeDidChangeCallback(clampedTime);
+            }
+        }];
+    }
+}
+
+void AudioVideoRendererAVFObjC::cancelTimeObserver()
+{
+    if (RetainPtr observer = std::exchange(m_timeChangedObserver, { }))
+        [m_synchronizer removeTimeObserver:observer.get()];
+}
+
 void AudioVideoRendererAVFObjC::prepareToSeek()
 {
     ALWAYS_LOG(LOGIDENTIFIER, "state: ", toString(m_seekState));
@@ -871,6 +921,13 @@ void AudioVideoRendererAVFObjC::addAudioRenderer(TrackIdentifier trackId)
 
     m_audioRenderers.set(trackId, renderer);
     m_listener->beginObservingAudioRenderer(renderer.get());
+
+#if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
+    if (RefPtr cdmInstance = m_cdmInstance; cdmInstance && shouldAddContentKeyRecipients()) {
+        // False positive webkit.org/b/298037
+        SUPPRESS_UNRETAINED_ARG [cdmInstance->contentKeySession() addContentKeyRecipient:renderer.get()];
+    }
+#endif
 }
 
 void AudioVideoRendererAVFObjC::removeAudioRenderer(TrackIdentifier trackId)
@@ -892,6 +949,13 @@ void AudioVideoRendererAVFObjC::destroyAudioRenderer(RetainPtr<AVSampleBufferAud
     m_listener->stopObservingAudioRenderer(renderer.get());
     [renderer flush];
     [renderer stopRequestingMediaData];
+
+#if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
+    if (RefPtr cdmInstance = m_cdmInstance; cdmInstance && shouldAddContentKeyRecipients()) {
+        // False positive webkit.org/b/298037
+        SUPPRESS_UNRETAINED_ARG [cdmInstance->contentKeySession() removeContentKeyRecipient:renderer.get()];
+    }
+#endif
 }
 
 void AudioVideoRendererAVFObjC::destroyAudioRenderers()
@@ -1027,7 +1091,6 @@ bool AudioVideoRendererAVFObjC::shouldEnsureLayerOrVideoRenderer() const
 {
     if (!canUseDecompressionSession())
         return true;
-
     return ((m_sampleBufferDisplayLayer && !CGRectIsEmpty([m_sampleBufferDisplayLayer bounds])) || (!m_presentationSize.isEmpty() && m_renderingCanBeAccelerated));
 }
 
@@ -1099,6 +1162,13 @@ void AudioVideoRendererAVFObjC::ensureLayer()
     setLayerDynamicRangeLimit(m_sampleBufferDisplayLayer.get(), m_dynamicRangeLimit);
 
     m_videoLayerManager->setVideoLayer(m_sampleBufferDisplayLayer.get(), m_presentationSize);
+
+#if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
+    if (RefPtr cdmInstance = m_cdmInstance; cdmInstance && shouldAddContentKeyRecipients()) {
+        // False positive webkit.org/b/298037
+        SUPPRESS_UNRETAINED_ARG [cdmInstance->contentKeySession() addContentKeyRecipient:m_sampleBufferDisplayLayer.get()];
+    }
+#endif
 }
 
 void AudioVideoRendererAVFObjC::destroyLayer()
@@ -1113,6 +1183,14 @@ void AudioVideoRendererAVFObjC::destroyLayer()
     [m_synchronizer removeRenderer:m_sampleBufferDisplayLayer.get() atTime:currentTime completionHandler:nil];
 
     m_videoLayerManager->didDestroyVideoLayer();
+
+#if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
+    if (RefPtr cdmInstance = m_cdmInstance; cdmInstance && shouldAddContentKeyRecipients()) {
+        // False positive webkit.org/b/298037
+        SUPPRESS_UNRETAINED_ARG [cdmInstance->contentKeySession() removeContentKeyRecipient:m_sampleBufferDisplayLayer.get()];
+    }
+#endif
+
     m_sampleBufferDisplayLayer = nullptr;
     m_needsDestroyVideoLayer = false;
 }
@@ -1175,6 +1253,7 @@ Ref<GenericPromise> AudioVideoRendererAVFObjC::setVideoRenderer(WebSampleBufferV
         destroyVideoRenderer();
     }
 
+    ALWAYS_LOG(LOGIDENTIFIER, "creating new VideoMediaSampleRenderer ");
     RefPtr videoRenderer = VideoMediaSampleRenderer::create(renderer);
     m_videoRenderer = videoRenderer;
 
@@ -1491,6 +1570,44 @@ void AudioVideoRendererAVFObjC::updateSpatialTrackingLabel()
     }
     for (auto& pair : m_audioRenderers)
         [(__bridge AVSampleBufferAudioRenderer *)pair.value.get() setSTSLabel:defaultLabel.get()];
+}
+#endif
+
+#if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
+void AudioVideoRendererAVFObjC::setCDMInstance(CDMInstance* instance)
+{
+    if (!shouldAddContentKeyRecipients())
+        return;
+
+    RefPtr fpsInstance = dynamicDowncast<CDMInstanceFairPlayStreamingAVFObjC>(instance);
+    if (fpsInstance == m_cdmInstance)
+        return;
+
+    RetainPtr layer =  m_sampleBufferDisplayLayer;
+
+    if (RefPtr cdmInstance = m_cdmInstance) {
+        if (layer) {
+            // False positive webkit.org/b/298037
+            SUPPRESS_UNRETAINED_ARG [cdmInstance->contentKeySession() removeContentKeyRecipient:layer.get()];
+        }
+        for (auto& renderer : m_audioRenderers.values()) {
+            // False positive webkit.org/b/298037
+            SUPPRESS_UNRETAINED_ARG [cdmInstance->contentKeySession() removeContentKeyRecipient:renderer.get()];
+        }
+    }
+
+    m_cdmInstance = fpsInstance;
+
+    if (fpsInstance) {
+        if (layer) {
+            // False positive webkit.org/b/298037
+            SUPPRESS_UNRETAINED_ARG [fpsInstance->contentKeySession() addContentKeyRecipient:layer.get()];
+        }
+        for (auto& renderer : m_audioRenderers.values()) {
+            // False positive webkit.org/b/298037
+            SUPPRESS_UNRETAINED_ARG [fpsInstance->contentKeySession() addContentKeyRecipient:renderer.get()];
+        }
+    }
 }
 #endif
 
