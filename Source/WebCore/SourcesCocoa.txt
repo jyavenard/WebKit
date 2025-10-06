@@ -376,7 +376,6 @@ platform/graphics/avfoundation/objc/AudioTrackPrivateMediaSourceAVFObjC.cpp
 platform/graphics/avfoundation/objc/CDMFairPlayStreamingAVFObjC.mm @nonARC
 platform/graphics/avfoundation/objc/CDMSessionAVContentKeySession.mm @nonARC
 platform/graphics/avfoundation/objc/CDMSessionAVFoundationObjC.mm @nonARC
-platform/graphics/avfoundation/objc/CDMSessionMediaSourceAVFObjC.mm @nonARC
 platform/graphics/avfoundation/objc/ContentKeyGroupFactoryAVFObjC.mm @nonARC
 platform/graphics/avfoundation/objc/ImageDecoderAVFObjC.mm @nonARC
 platform/graphics/avfoundation/objc/InbandTextTrackPrivateAVFObjC.mm @nonARC @no-unify

@@ -78,13 +78,6 @@ class SharedBuffer;
 
 struct TrackInfo;
 
-class SourceBufferPrivateAVFObjCErrorClient {
-public:
-    virtual ~SourceBufferPrivateAVFObjCErrorClient() = default;
-    virtual void videoRendererDidReceiveError(NSError *, bool& shouldIgnore) = 0;
-    virtual void audioRendererDidReceiveError(NSError *, bool& shouldIgnore) = 0;
-};
-
 class SourceBufferPrivateAVFObjC final
     : public SourceBufferPrivate
 {
@@ -110,7 +103,6 @@ public:
     bool needsVideoLayer() const;
 
 #if (ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)) || ENABLE(LEGACY_ENCRYPTED_MEDIA)
-    AVStreamDataParser* streamDataParser() const { return m_streamDataParser.get(); }
     void setCDMSession(LegacyCDMSession*) final;
     void setCDMInstance(CDMInstance*) final;
     void attemptToDecrypt() final;
@@ -123,14 +115,7 @@ public:
     using TrackIdentifier = TracksRendererManager::TrackIdentifier;
     std::optional<TrackIdentifier> trackIdentifierFor(TrackID) const;
 
-    void registerForErrorNotifications(SourceBufferPrivateAVFObjCErrorClient*);
-    void unregisterForErrorNotifications(SourceBufferPrivateAVFObjCErrorClient*);
-
     void setVideoRenderer(bool);
-
-#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
-    SharedBuffer* initData() { return m_initData.get(); }
-#endif
 
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger.get(); }
@@ -197,7 +182,6 @@ private:
     StdUnorderedMap<TrackID, RefPtr<VideoTrackPrivate>> m_videoTracks;
     StdUnorderedMap<TrackID, RefPtr<AudioTrackPrivate>> m_audioTracks;
     StdUnorderedMap<TrackID, RefPtr<InbandTextTrackPrivate>> m_textTracks;
-    Vector<SourceBufferPrivateAVFObjCErrorClient*> m_errorClients;
     StdUnorderedMap<TrackID, TrackIdentifier> m_trackIdentifiers;
 
     // Detachable MediaSource state records.

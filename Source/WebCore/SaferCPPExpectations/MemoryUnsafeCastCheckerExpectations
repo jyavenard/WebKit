@@ -88,8 +88,6 @@ mathml/MathMLRowElement.cpp
 page/NavigatorLoginStatus.cpp
 page/mac/EventHandlerMac.mm
 platform/graphics/GraphicsLayer.cpp
-platform/graphics/avfoundation/objc/CDMSessionAVContentKeySession.h
-platform/graphics/avfoundation/objc/CDMSessionMediaSourceAVFObjC.h
 platform/graphics/ca/GraphicsLayerCA.cpp
 platform/graphics/ca/cocoa/PlatformCAAnimationCocoa.mm
 platform/graphics/mac/controls/ControlMac.mm

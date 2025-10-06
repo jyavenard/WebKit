@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CDMPrivateMediaSourceAVFObjC_h
-#define CDMPrivateMediaSourceAVFObjC_h
+#pragma once
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA) && ENABLE(MEDIA_SOURCE)
 
@@ -36,7 +35,7 @@
 namespace WebCore {
 
 class LegacyCDM;
-class CDMSessionMediaSourceAVFObjC;
+class CDMSessionAVContentKeySession;
 
 class CDMPrivateMediaSourceAVFObjC final : public CDMPrivateInterface, public CanMakeWeakPtr<CDMPrivateMediaSourceAVFObjC> {
     WTF_MAKE_TZONE_ALLOCATED(CDMPrivateMediaSourceAVFObjC);
@@ -44,7 +43,7 @@ public:
     explicit CDMPrivateMediaSourceAVFObjC(LegacyCDM& cdm)
         : m_cdm(cdm)
     { }
-    virtual ~CDMPrivateMediaSourceAVFObjC();
+    ~CDMPrivateMediaSourceAVFObjC();
 
     static bool supportsKeySystem(const String&);
     static bool supportsKeySystemAndMimeType(const String& keySystem, const String& mimeType);
@@ -54,7 +53,7 @@ public:
 
     LegacyCDM& cdm() const;
 
-    void invalidateSession(CDMSessionMediaSourceAVFObjC*);
+    void invalidateSession(CDMSessionAVContentKeySession*);
 
     void ref() const final;
     void deref() const final;
@@ -65,13 +64,11 @@ private:
         Vector<int> protocols;
     };
     static std::optional<KeySystemParameters> parseKeySystem(const String& keySystem);
-    
+
     WeakRef<LegacyCDM> m_cdm;
-    Vector<CDMSessionMediaSourceAVFObjC*> m_sessions;
+    Vector<CDMSessionAVContentKeySession*> m_sessions;
 };
 
 }
 
 #endif // ENABLE(LEGACY_ENCRYPTED_MEDIA) && ENABLE(MEDIA_SOURCE)
-
-#endif // CDMPrivateMediaSourceAVFObjC_h
