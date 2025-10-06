@@ -34,7 +34,6 @@
 #import "CDMFairPlayStreaming.h"
 #import "CDMInstanceFairPlayStreamingAVFObjC.h"
 #import "CDMSessionAVContentKeySession.h"
-#import "CDMSessionMediaSourceAVFObjC.h"
 #import "FourCC.h"
 #import "InbandTextTrackPrivateAVFObjC.h"
 #import "Logging.h"
@@ -337,6 +336,8 @@ void SourceBufferPrivateAVFObjC::didProvideContentKeyRequestInitializationDataFo
 
     m_protectedTrackID = trackID;
     m_initData = initData.copyRef();
+    if (RefPtr session = m_session.get())
+        session->setInitData(*m_initData);
     mediaSource->sourceBufferKeyNeeded(this, initData);
 
     if (RefPtr session = player->cdmSession()) {
@@ -631,14 +632,11 @@ void SourceBufferPrivateAVFObjC::setCDMSession(LegacyCDMSession* session)
 
     ALWAYS_LOG(LOGIDENTIFIER);
 
-    if (oldSession)
-        oldSession->removeSourceBuffer(this);
-
-    // FIXME: This is a false positive. Remove the suppression once rdar://145631564 is fixed.
-    SUPPRESS_UNCOUNTED_ARG m_session = toCDMSessionAVContentKeySession(session);
+    m_session = dynamicDowncast<CDMSessionAVContentKeySession>(session);
 
     if (RefPtr session = m_session.get()) {
-        session->addSourceBuffer(this);
+        if (m_initData)
+            session->setInitData(*m_initData);
         if (m_hasSessionSemaphore) {
             m_hasSessionSemaphore->signal();
             m_hasSessionSemaphore = nullptr;
@@ -699,18 +697,6 @@ std::optional<AudioVideoRenderer::TrackIdentifier> SourceBufferPrivateAVFObjC::t
     if (auto it = m_trackIdentifiers.find(trackId); it != m_trackIdentifiers.end())
         return it->second;
     return std::nullopt;
-}
-
-void SourceBufferPrivateAVFObjC::registerForErrorNotifications(SourceBufferPrivateAVFObjCErrorClient* client)
-{
-    ASSERT(!m_errorClients.contains(client));
-    m_errorClients.append(client);
-}
-
-void SourceBufferPrivateAVFObjC::unregisterForErrorNotifications(SourceBufferPrivateAVFObjCErrorClient* client)
-{
-    ASSERT(m_errorClients.contains(client));
-    m_errorClients.removeFirst(client);
 }
 
 void SourceBufferPrivateAVFObjC::setVideoRenderer(bool videoEnabled)

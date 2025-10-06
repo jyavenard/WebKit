@@ -256,7 +256,6 @@ list(APPEND WebCore_SOURCES
     platform/graphics/avfoundation/objc/CDMInstanceFairPlayStreamingAVFObjC.mm
     platform/graphics/avfoundation/objc/CDMSessionAVContentKeySession.mm
     platform/graphics/avfoundation/objc/CDMSessionAVFoundationObjC.mm
-    platform/graphics/avfoundation/objc/CDMSessionMediaSourceAVFObjC.mm
     platform/graphics/avfoundation/objc/ImageDecoderAVFObjC.mm
     platform/graphics/avfoundation/objc/InbandTextTrackPrivateAVFObjC.mm
     platform/graphics/avfoundation/objc/MediaPlayerPrivateAVFoundationObjC.mm

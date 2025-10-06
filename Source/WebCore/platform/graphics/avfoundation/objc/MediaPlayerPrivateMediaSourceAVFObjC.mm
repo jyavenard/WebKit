@@ -898,11 +898,15 @@ void MediaPlayerPrivateMediaSourceAVFObjC::setCDMSession(LegacyCDMSession* sessi
 
     ALWAYS_LOG(LOGIDENTIFIER);
 
-    // FIXME: This is a false positive. Remove the suppression once rdar://145631564 is fixed.
-    SUPPRESS_UNCOUNTED_ARG m_session = toCDMSessionAVContentKeySession(session);
+    if (RefPtr oldSession = m_session.get())
+        oldSession->removeRenderer(m_renderer);
+
+    m_session = dynamicDowncast<CDMSessionAVContentKeySession>(session);
 
     if (RefPtr mediaSourcePrivate = m_mediaSourcePrivate)
         mediaSourcePrivate->setCDMSession(session);
+
+    m_session.get()->addRenderer(m_renderer);
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::keyAdded()

@@ -139,7 +139,7 @@ RefPtr<LegacyCDMSession> CDMPrivateMediaSourceAVFObjC::createSession(LegacyCDMSe
     return WTFMove(session);
 }
 
-void CDMPrivateMediaSourceAVFObjC::invalidateSession(CDMSessionMediaSourceAVFObjC* session)
+void CDMPrivateMediaSourceAVFObjC::invalidateSession(CDMSessionAVContentKeySession* session)
 {
     ASSERT(m_sessions.contains(session));
     m_sessions.removeAll(session);

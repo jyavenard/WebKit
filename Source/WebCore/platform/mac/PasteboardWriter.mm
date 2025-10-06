@@ -32,6 +32,8 @@
 #import "Pasteboard.h"
 #import "PasteboardWriterData.h"
 #import "SharedBuffer.h"
+#import <UniformTypeIdentifiers/UTCoreTypes.h>
+#import <UniformTypeIdentifiers/UTType.h>
 #import <pal/spi/mac/NSPasteboardSPI.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 

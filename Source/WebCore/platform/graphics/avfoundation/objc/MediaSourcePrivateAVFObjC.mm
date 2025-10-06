@@ -29,7 +29,7 @@
 #if ENABLE(MEDIA_SOURCE) && USE(AVFOUNDATION)
 
 #import "CDMInstance.h"
-#import "CDMSessionMediaSourceAVFObjC.h"
+#import "CDMSessionAVContentKeySession.h"
 #import "ContentType.h"
 #import "Logging.h"
 #import "MediaPlayerPrivateMediaSourceAVFObjC.h"
