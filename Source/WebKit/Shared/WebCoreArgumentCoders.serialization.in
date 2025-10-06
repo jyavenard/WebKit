@@ -8901,6 +8901,9 @@ header: <WebCore/TrackInfo.h>
     String codecString;
     WebCore::TrackID trackID;
     [NotSerialized] WebCore::TrackInfoTrackType m_type;
+#if ENABLE(ENCRYPTED_MEDIA)
+    Vector<Ref<WebCore::SharedBuffer>> m_keyIDs;
+#endif
     uint32_t rate;
     uint32_t channels;
     uint32_t framesPerPacket;
@@ -8914,6 +8917,9 @@ header: <WebCore/TrackInfo.h>
     String codecString;
     WebCore::TrackID trackID;
     [NotSerialized] WebCore::TrackInfoTrackType m_type;
+#if ENABLE(ENCRYPTED_MEDIA)
+    Vector<Ref<WebCore::SharedBuffer>> m_keyIDs;
+#endif
     WebCore::FloatSize size;
     WebCore::FloatSize displaySize;
     uint8_t bitDepth;

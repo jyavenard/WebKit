@@ -66,6 +66,10 @@ struct TrackInfo : public ThreadSafeRefCounted<TrackInfo> {
     {
         if (type() != other.type() || codecName != other.codecName || trackID != other.trackID)
             return false;
+#if ENABLE(ENCRYPTED_MEDIA)
+        if (m_keyIDs != other.m_keyIDs)
+            return false;
+#endif
         return equalTo(other);
     }
 
@@ -82,6 +86,13 @@ struct TrackInfo : public ThreadSafeRefCounted<TrackInfo> {
         return const_cast<VideoInfo&>(downcast<VideoInfo>(*this));
     }
 
+#if ENABLE(ENCRYPTED_MEDIA)
+    using KeyIDs = Vector<Ref<SharedBuffer>>;
+    void setKeyIDs(KeyIDs&& keyIDs) { m_keyIDs = WTFMove(keyIDs); }
+    const KeyIDs& keyIDs() const { return m_keyIDs; }
+    KeyIDs& keyIDs() { return m_keyIDs; }
+#endif
+
 protected:
     virtual bool equalTo(const TrackInfo& other) const = 0;
     TrackInfo(TrackType type)
@@ -93,6 +104,16 @@ protected:
         , m_type(type)
     {
     }
+#if ENABLE(ENCRYPTED_MEDIA)
+    TrackInfo(TrackType type, FourCC codecName, const String& codecString, TrackID trackID, KeyIDs&& keyIDs)
+        : codecName(codecName)
+        , codecString(codecString)
+        , trackID(trackID)
+        , m_type(type)
+        , m_keyIDs(WTFMove(keyIDs))
+    {
+    }
+#endif
 
 private:
     friend struct IPC::ArgumentCoder<TrackInfo, void>;
@@ -100,6 +121,9 @@ private:
     friend struct IPC::ArgumentCoder<VideoInfo, void>;
     WEBCORE_EXPORT static Ref<TrackInfo> fromVariant(Variant<Ref<AudioInfo>, Ref<VideoInfo>>);
     const TrackType m_type { TrackType::Unknown };
+#if ENABLE(ENCRYPTED_MEDIA)
+    KeyIDs m_keyIDs;
+#endif
 };
 
 struct VideoInfo : public TrackInfo {
@@ -136,6 +160,23 @@ private:
         , atomData(WTFMove(atomData))
     {
     }
+#if ENABLE(ENCRYPTED_MEDIA)
+    static Ref<VideoInfo> create(FourCC codecName, const String& codecString, WebCore::TrackID trackID, KeyIDs&& keyIDs, FloatSize size, FloatSize displaySize, uint8_t bitDepth, PlatformVideoColorSpace colorSpace, const String& boxType, RefPtr<SharedBuffer>&& atomData)
+    {
+        return adoptRef(*new VideoInfo(codecName, codecString, trackID, WTFMove(keyIDs), size, displaySize, bitDepth, colorSpace, boxType, WTFMove(atomData)));
+    }
+
+    VideoInfo(FourCC codecName, const String& codecString, WebCore::TrackID trackID, KeyIDs&& keyIDs, FloatSize size, FloatSize displaySize, uint8_t bitDepth, PlatformVideoColorSpace colorSpace, const String& boxType, RefPtr<SharedBuffer>&& atomData)
+        : TrackInfo(TrackType::Video, codecName, codecString, trackID, WTFMove(keyIDs))
+        , size(size)
+        , displaySize(displaySize)
+        , bitDepth(bitDepth)
+        , colorSpace(colorSpace)
+        , boxType(boxType)
+        , atomData(WTFMove(atomData))
+    {
+    }
+#endif
 
     bool equalTo(const TrackInfo& otherVideoInfo) const final
     {
@@ -174,6 +215,23 @@ private:
         , cookieData(WTFMove(cookieData))
     {
     }
+
+#if ENABLE(ENCRYPTED_MEDIA)
+    static Ref<AudioInfo> create(FourCC codecName, const String& codecString, TrackID trackID, KeyIDs&& keyIDs, uint32_t rate, uint32_t channels, uint32_t framesPerPacket, uint8_t bitDepth, RefPtr<SharedBuffer>&& cookieData)
+    {
+        return adoptRef(*new AudioInfo(codecName, codecString, trackID, WTFMove(keyIDs), rate, channels, framesPerPacket, bitDepth, WTFMove(cookieData)));
+    }
+
+    AudioInfo(FourCC codecName, const String& codecString, TrackID trackID, KeyIDs&& keyIDs, uint32_t rate, uint32_t channels, uint32_t framesPerPacket, uint8_t bitDepth, RefPtr<SharedBuffer>&& cookieData)
+        : TrackInfo(TrackType::Audio, codecName, codecString, trackID, WTFMove(keyIDs))
+        , rate(rate)
+        , channels(channels)
+        , framesPerPacket(framesPerPacket)
+        , bitDepth(bitDepth)
+        , cookieData(WTFMove(cookieData))
+    {
+    }
+#endif
 
     bool equalTo(const TrackInfo& otherAudioInfo) const final
     {
