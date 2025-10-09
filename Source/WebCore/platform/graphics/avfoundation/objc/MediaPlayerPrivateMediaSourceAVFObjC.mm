@@ -163,6 +163,13 @@ MediaPlayerPrivateMediaSourceAVFObjC::MediaPlayerPrivateMediaSourceAVFObjC(Media
             protectedThis->effectiveRateChanged();
     });
 
+    m_renderer->notifyVideoLayerSizeChanged([weakThis = WeakPtr { *this }](const MediaTime&, FloatSize size) {
+        if (RefPtr protectedThis = weakThis.get()) {
+            if (RefPtr player = protectedThis->m_player.get())
+                player->videoLayerSizeDidChange(size);
+        }
+    });
+
 #if ENABLE(LINEAR_MEDIA_PLAYER)
     if (RetainPtr videoTarget = player->videoTarget())
         m_renderer->setVideoTarget(videoTarget.get());
