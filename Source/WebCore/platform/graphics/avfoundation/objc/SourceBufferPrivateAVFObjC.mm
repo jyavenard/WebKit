@@ -324,7 +324,7 @@ void SourceBufferPrivateAVFObjC::processFormatDescriptionForTrackId(Ref<TrackInf
     }
 }
 
-void SourceBufferPrivateAVFObjC::didProvideContentKeyRequestInitializationDataForTrackID(Ref<SharedBuffer>&& initData, TrackID trackID, Box<BinarySemaphore> hasSessionSemaphore)
+void SourceBufferPrivateAVFObjC::didProvideContentKeyRequestInitializationDataForTrackID(Ref<SharedBuffer>&& initData, TrackID trackID)
 {
     RefPtr player = this->player();
     if (!player)
@@ -339,16 +339,9 @@ void SourceBufferPrivateAVFObjC::didProvideContentKeyRequestInitializationDataFo
     m_initData = initData.copyRef();
     mediaSource->sourceBufferKeyNeeded(this, initData);
 
-    if (RefPtr session = player->cdmSession()) {
-        if (hasSessionSemaphore)
-            hasSessionSemaphore->signal();
+    if (player->cdmSession())
         return;
-    }
 #endif
-
-    if (m_hasSessionSemaphore)
-        m_hasSessionSemaphore->signal();
-    m_hasSessionSemaphore = hasSessionSemaphore;
 
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
     auto keyIDs = CDMPrivateFairPlayStreaming::extractKeyIDsSinf(initData);
@@ -366,10 +359,6 @@ void SourceBufferPrivateAVFObjC::didProvideContentKeyRequestInitializationDataFo
 
     if (RefPtr cdmInstance = m_cdmInstance) {
         if (RefPtr instanceSession = cdmInstance->sessionForKeyIDs(keyIDs.value())) {
-            if (m_hasSessionSemaphore) {
-                m_hasSessionSemaphore->signal();
-                m_hasSessionSemaphore = nullptr;
-            }
             m_waitingForKey = false;
             return;
         }
@@ -385,7 +374,6 @@ void SourceBufferPrivateAVFObjC::didProvideContentKeyRequestInitializationDataFo
 
     UNUSED_PARAM(initData);
     UNUSED_PARAM(trackID);
-    UNUSED_PARAM(hasSessionSemaphore);
 }
 
 bool SourceBufferPrivateAVFObjC::needsVideoLayer() const
@@ -401,11 +389,7 @@ Ref<MediaPromise> SourceBufferPrivateAVFObjC::appendInternal(Ref<SharedBuffer>&&
 {
     ALWAYS_LOG(LOGIDENTIFIER, "data length = ", data->size());
 
-    ASSERT(!m_hasSessionSemaphore);
-    ASSERT(!m_abortSemaphore);
-
-    m_abortSemaphore = Box<Semaphore>::create(0);
-    return invokeAsync(m_appendQueue, [data = WTFMove(data), parser = m_parser, weakThis = ThreadSafeWeakPtr { *this }, abortSemaphore = m_abortSemaphore]() mutable {
+    return invokeAsync(m_appendQueue, [data = WTFMove(data), parser = m_parser, weakThis = ThreadSafeWeakPtr { *this }]() mutable {
         parser->setDidParseInitializationDataCallback([weakThis] (InitializationSegment&& segment) {
             ASSERT(isMainThread());
             if (RefPtr protectedThis = weakThis.get())
@@ -424,48 +408,18 @@ Ref<MediaPromise> SourceBufferPrivateAVFObjC::appendInternal(Ref<SharedBuffer>&&
                 protectedThis->didUpdateFormatDescriptionForTrackId(WTFMove(formatDescription), trackId);
         });
 
-        parser->setWillProvideContentKeyRequestInitializationDataForTrackIDCallback([abortSemaphore] (TrackID) mutable {
-            // We must call synchronously to the main thread, as the AVStreamSession must be associated
-            // with the streamDataParser before the delegate method returns.
-            Box<BinarySemaphore> respondedSemaphore = Box<BinarySemaphore>::create();
-            callOnMainThread([respondedSemaphore]() {
-                respondedSemaphore->signal();
-            });
-
-            while (true) {
-                if (respondedSemaphore->waitFor(100_ms))
-                    return;
-
-                if (abortSemaphore->waitFor(100_ms)) {
-                    abortSemaphore->signal();
-                    return;
-                }
-            }
-        });
-
-        parser->setDidProvideContentKeyRequestInitializationDataForTrackIDCallback([weakThis, abortSemaphore](Ref<SharedBuffer>&& initData, TrackID trackID) mutable {
+        parser->setDidProvideContentKeyRequestInitializationDataForTrackIDCallback([weakThis](Ref<SharedBuffer>&& initData, TrackID trackID) mutable {
             // Called on the data parser queue.
-            Box<BinarySemaphore> hasSessionSemaphore = Box<BinarySemaphore>::create();
-            callOnMainThread([weakThis, initData = WTFMove(initData), trackID, hasSessionSemaphore] () mutable {
+            callOnMainThread([weakThis, initData = WTFMove(initData), trackID] () mutable {
                 if (RefPtr protectedThis = weakThis.get())
-                    protectedThis->didProvideContentKeyRequestInitializationDataForTrackID(WTFMove(initData), trackID, hasSessionSemaphore);
+                    protectedThis->didProvideContentKeyRequestInitializationDataForTrackID(WTFMove(initData), trackID);
             });
-
-            while (true) {
-                if (hasSessionSemaphore->waitFor(100_ms))
-                    return;
-
-                if (abortSemaphore->waitFor(100_ms)) {
-                    abortSemaphore->signal();
-                    return;
-                }
-            }
         });
 
         parser->setDidProvideContentKeyRequestIdentifierForTrackIDCallback([weakThis] (Ref<SharedBuffer>&& initData, TrackID trackID) {
             ASSERT(isMainThread());
             if (RefPtr protectedThis = weakThis.get())
-                protectedThis->didProvideContentKeyRequestInitializationDataForTrackID(WTFMove(initData), trackID, nullptr);
+                protectedThis->didProvideContentKeyRequestInitializationDataForTrackID(WTFMove(initData), trackID);
         });
 
         Ref ensureDestroyedSharedBuffer = WTFMove(data);
@@ -481,34 +435,8 @@ void SourceBufferPrivateAVFObjC::appendCompleted(bool success)
 {
     ALWAYS_LOG(LOGIDENTIFIER);
 
-    if (m_abortSemaphore) {
-        m_abortSemaphore->signal();
-        m_abortSemaphore = nil;
-    }
-
-    if (m_hasSessionSemaphore) {
-        m_hasSessionSemaphore->signal();
-        m_hasSessionSemaphore = nil;
-    }
-
     if (auto player = this->player(); player && success)
         player->setLoadingProgresssed(true);
-}
-
-void SourceBufferPrivateAVFObjC::abort()
-{
-    ALWAYS_LOG(LOGIDENTIFIER);
-
-    // The parsing queue may be blocked waiting for the main thread to provide it an AVStreamSession.
-    if (m_hasSessionSemaphore) {
-        m_hasSessionSemaphore->signal();
-        m_hasSessionSemaphore = nullptr;
-    }
-    if (m_abortSemaphore) {
-        m_abortSemaphore->signal();
-        m_abortSemaphore = nullptr;
-    }
-    SourceBufferPrivate::abort();
 }
 
 void SourceBufferPrivateAVFObjC::resetParserStateInternal()
@@ -637,13 +565,8 @@ void SourceBufferPrivateAVFObjC::setCDMSession(LegacyCDMSession* session)
     // FIXME: This is a false positive. Remove the suppression once rdar://145631564 is fixed.
     SUPPRESS_UNCOUNTED_ARG m_session = toCDMSessionAVContentKeySession(session);
 
-    if (RefPtr session = m_session.get()) {
+    if (RefPtr session = m_session.get())
         session->addSourceBuffer(this);
-        if (m_hasSessionSemaphore) {
-            m_hasSessionSemaphore->signal();
-            m_hasSessionSemaphore = nullptr;
-        }
-    }
 #else
     UNUSED_PARAM(session);
 #endif
@@ -683,10 +606,6 @@ void SourceBufferPrivateAVFObjC::attemptToDecrypt()
     } else if (!m_session.get())
         return;
 
-    if (m_hasSessionSemaphore) {
-        m_hasSessionSemaphore->signal();
-        m_hasSessionSemaphore = nullptr;
-    }
     m_waitingForKey = false;
 
     tryToEnqueueBlockedSamples();
