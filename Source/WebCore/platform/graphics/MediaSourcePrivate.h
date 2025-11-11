@@ -87,8 +87,9 @@ public:
     virtual void bufferedChanged(const PlatformTimeRanges&); // Base class method must be called in overrides. Must be thread-safe.
     void trackBufferedChanged(SourceBufferPrivate&, Vector<PlatformTimeRanges>&&);
 
-    virtual MediaPlayer::ReadyState mediaPlayerReadyState() const = 0;
-    virtual void setMediaPlayerReadyState(MediaPlayer::ReadyState) = 0;
+    MediaPlayer::ReadyState mediaPlayerReadyState() const;
+    // Must call base class implementation in override.
+    virtual void setMediaPlayerReadyState(MediaPlayer::ReadyState);
     virtual void markEndOfStream(EndOfStreamStatus) { m_isEnded = true; }
     virtual void unmarkEndOfStream() { m_isEnded = false; }
     bool isEnded() const { return m_isEnded; }
@@ -139,6 +140,8 @@ protected:
     Vector<SourceBufferPrivate*> m_activeSourceBuffers;
     std::atomic<bool> m_isEnded { false }; // Set on MediaSource's dispatcher.
     std::atomic<MediaSourceReadyState> m_readyState; // Set on MediaSource's dispatcher.
+    std::atomic<WebCore::MediaPlayer::ReadyState> m_mediaPlayerReadyState { WebCore::MediaPlayer::ReadyState::HaveNothing };
+
     const Ref<WorkQueue> m_dispatcher; // SerialFunctionDispatcher the SourceBufferPrivate/MediaSourcePrivate is running on.
 
 private:

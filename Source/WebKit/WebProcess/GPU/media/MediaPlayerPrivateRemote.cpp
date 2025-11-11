@@ -474,18 +474,33 @@ void MediaPlayerPrivateRemote::networkStateChanged(RemoteMediaPlayerState&& stat
         player->networkStateChanged();
 }
 
+WebCore::MediaPlayer::ReadyState MediaPlayerPrivateRemote::readyState() const
+{
+#if ENABLE(MEDIA_SOURCE)
+    if (RefPtr mediaSourcePrivate = m_mediaSourcePrivate)
+        return mediaSourcePrivate->mediaPlayerReadyState();
+#endif
+
+    return m_readyState;
+}
+
 void MediaPlayerPrivateRemote::setReadyState(MediaPlayer::ReadyState readyState)
 {
-    // Can be called by the MediaSourcePrivateRemote on its WorkQueue.
+    assertIsMainRunLoop();
+
     ALWAYS_LOG(LOGIDENTIFIER, readyState);
-    ensureOnMainRunLoop([protectedThis = Ref { *this }, this, readyState] {
-        if (std::exchange(m_readyState, readyState) == readyState)
-            return;
-        if (readyState > MediaPlayer::ReadyState::HaveCurrentData && m_readyState == MediaPlayer::ReadyState::HaveCurrentData)
-            ALWAYS_LOG(LOGIDENTIFIER, "stall detected");
-        if (auto player = m_player.get())
-            player->readyStateChanged();
-    });
+    if (std::exchange(m_readyState, readyState) == readyState)
+        return;
+    if (readyState > MediaPlayer::ReadyState::HaveCurrentData && m_readyState == MediaPlayer::ReadyState::HaveCurrentData)
+        ALWAYS_LOG(LOGIDENTIFIER, "stall detected");
+
+#if ENABLE(MEDIA_SOURCE)
+    if (m_mediaSourcePrivate)
+        return;
+#endif
+
+    if (auto player = m_player.get())
+        player->readyStateChanged();
 }
 
 void MediaPlayerPrivateRemote::readyStateChanged(RemoteMediaPlayerState&& state, MediaPlayer::ReadyState readyState)
@@ -496,8 +511,19 @@ void MediaPlayerPrivateRemote::readyStateChanged(RemoteMediaPlayerState&& state,
 
     updateCachedState(WTFMove(state));
     setReadyState(readyState);
-
 }
+
+#if ENABLE(MEDIA_SOURCE)
+void MediaPlayerPrivateRemote::readyStateFromMediaSourceChanged()
+{
+    ensureOnMainRunLoop([weakThis = ThreadSafeWeakPtr { *this }] {
+        if (RefPtr protectedThis = weakThis.get()) {
+            if (RefPtr player = protectedThis->m_player.get())
+                player->readyStateChanged();
+        }
+    });
+}
+#endif
 
 void MediaPlayerPrivateRemote::volumeChanged(double volume)
 {

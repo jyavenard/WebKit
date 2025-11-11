@@ -77,6 +77,7 @@ MediaSourcePrivateAVFObjC::~MediaSourcePrivateAVFObjC()
 
 void MediaSourcePrivateAVFObjC::setPlayer(MediaPlayerPrivateInterface* player)
 {
+    ASSERT(player);
     m_player = downcast<MediaPlayerPrivateMediaSourceAVFObjC>(player);
     for (RefPtr sourceBuffer : m_sourceBuffers)
         downcast<SourceBufferPrivateAVFObjC>(sourceBuffer)->setAudioVideoRenderer(m_player->audioVideoRenderer());
@@ -141,26 +142,6 @@ void MediaSourcePrivateAVFObjC::markEndOfStream(EndOfStreamStatus status)
     if (auto player = platformPlayer(); status == EndOfStreamStatus::NoError && player)
         player->setNetworkState(MediaPlayer::NetworkState::Loaded);
     MediaSourcePrivate::markEndOfStream(status);
-}
-
-MediaPlayer::ReadyState MediaSourcePrivateAVFObjC::mediaPlayerReadyState() const
-{
-    if (auto player = this->player())
-        return player->readyState();
-    return MediaPlayer::ReadyState::HaveNothing;
-}
-
-void MediaSourcePrivateAVFObjC::setMediaPlayerReadyState(MediaPlayer::ReadyState readyState)
-{
-    if (auto player = platformPlayer())
-        player->setReadyState(readyState);
-}
-
-bool MediaSourcePrivateAVFObjC::hasSelectedVideo() const
-{
-    return std::ranges::any_of(m_activeSourceBuffers, [](auto* sourceBuffer) {
-        return downcast<SourceBufferPrivateAVFObjC>(sourceBuffer)->hasSelectedVideo();
-    });
 }
 
 FloatSize MediaSourcePrivateAVFObjC::naturalSize() const

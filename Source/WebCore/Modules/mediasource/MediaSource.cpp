@@ -644,9 +644,7 @@ void MediaSource::monitorSourceBuffers()
     };
     PlatformTimeRanges neededBufferedRange { currentTime, std::max(currentTime, limitAhead(kHaveEnoughDataThreshold)) };
 
-    bool waitForAvailableFrame = msp->readyStateShouldAwaitHasAvailableVideoFrame() && msp->hasVideo() && !m_hasAvailableVideoFrame;
-
-    if (!waitForAvailableFrame && isBuffered(neededBufferedRange)) {
+    if (isBuffered(neededBufferedRange)) {
         // 1. Set the HTMLMediaElement.readyState attribute to HAVE_ENOUGH_DATA.
         // 2. Queue a task to fire a simple event named canplaythrough at the media element.
         // 3. Playback may resume at this point if it was previously suspended by a transition to HAVE_CURRENT_DATA.
@@ -661,7 +659,7 @@ void MediaSource::monitorSourceBuffers()
 
     // ↳ If HTMLMediaElement.buffered contains a TimeRange that includes the current playback
     //  position and some time beyond the current playback position, then run the following steps:
-    if (!waitForAvailableFrame && hasFutureTime()) {
+    if (hasFutureTime()) {
         // 1. Set the HTMLMediaElement.readyState attribute to HAVE_FUTURE_DATA.
         // 2. If the previous value of HTMLMediaElement.readyState was less than HAVE_FUTURE_DATA, then queue a task to fire a simple event named canplay at the media element.
         // 3. Playback may resume at this point if it was previously suspended by a transition to HAVE_CURRENT_DATA.
@@ -682,7 +680,7 @@ void MediaSource::monitorSourceBuffers()
     // event named loadeddata at the media element.
     // 3. Playback is suspended at this point since the media element doesn't have enough data to
     // advance the media timeline.
-    msp->setMediaPlayerReadyState(waitForAvailableFrame ? MediaPlayer::ReadyState::HaveMetadata : MediaPlayer::ReadyState::HaveCurrentData);
+    msp->setMediaPlayerReadyState(MediaPlayer::ReadyState::HaveCurrentData);
 
     if (m_pendingSeekTarget)
         completeSeek();

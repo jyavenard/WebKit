@@ -74,11 +74,7 @@ public:
     void durationChanged(const MediaTime&) final;
     void markEndOfStream(EndOfStreamStatus) final;
 
-    MediaPlayer::ReadyState mediaPlayerReadyState() const final;
-    void setMediaPlayerReadyState(MediaPlayer::ReadyState) final;
     bool readyStateShouldAwaitHasAvailableVideoFrame() const final { return true; };
-
-    bool hasSelectedVideo() const;
 
     FloatSize naturalSize() const;
 

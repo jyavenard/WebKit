@@ -236,6 +236,18 @@ bool MediaSourcePrivate::hasBufferedData() const
     return m_buffered.length();
 }
 
+MediaPlayer::ReadyState MediaSourcePrivate::mediaPlayerReadyState() const
+{
+    return m_mediaPlayerReadyState;
+}
+
+void MediaSourcePrivate::setMediaPlayerReadyState(MediaPlayer::ReadyState readyState)
+{
+    m_mediaPlayerReadyState = readyState;
+    if (RefPtr player = this->player())
+        player->readyStateFromMediaSourceChanged();
+}
+
 PlatformTimeRanges MediaSourcePrivate::seekable() const
 {
     MediaTime duration;

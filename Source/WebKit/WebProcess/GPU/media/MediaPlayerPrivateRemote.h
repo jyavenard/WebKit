@@ -116,7 +116,7 @@ public:
     Ref<IPC::Connection> protectedConnection() const { return protectedManager()->gpuProcessConnection().connection(); }
     RefPtr<WebCore::MediaPlayer> player() const { return m_player.get(); }
 
-    WebCore::MediaPlayer::ReadyState readyState() const final { return m_readyState; }
+    WebCore::MediaPlayer::ReadyState readyState() const final;
     void setReadyState(WebCore::MediaPlayer::ReadyState);
 
     void commitAllTransactions(CompletionHandler<void()>&&);
@@ -267,6 +267,7 @@ private:
 
 #if ENABLE(MEDIA_SOURCE)
     void load(const URL&, const LoadOptions&, WebCore::MediaSourcePrivateClient&) final;
+    void readyStateFromMediaSourceChanged() final;
 #endif
 #if ENABLE(MEDIA_STREAM)
     void load(WebCore::MediaStreamPrivate&) final;

@@ -106,7 +106,6 @@ MediaPlayerPrivateMediaSourceAVFObjC::MediaPlayerPrivateMediaSourceAVFObjC(Media
     , m_seekTimer(*this, &MediaPlayerPrivateMediaSourceAVFObjC::seekInternal)
     , m_rendererSeekRequest(NativePromiseRequest::create())
     , m_networkState(MediaPlayer::NetworkState::Empty)
-    , m_readyState(MediaPlayer::ReadyState::HaveNothing)
     , m_logger(player.mediaPlayerLogger())
     , m_logIdentifier(player.mediaPlayerLogIdentifier())
 #if HAVE(SPATIAL_TRACKING_LABEL)
@@ -628,8 +627,18 @@ MediaPlayer::NetworkState MediaPlayerPrivateMediaSourceAVFObjC::networkState() c
 
 MediaPlayer::ReadyState MediaPlayerPrivateMediaSourceAVFObjC::readyState() const
 {
-    assertIsMainThread();
+    if (RefPtr mediaSourcePrivate = m_mediaSourcePrivate)
+        return mediaSourcePrivate->mediaPlayerReadyState();
     return m_readyState;
+}
+
+void MediaPlayerPrivateMediaSourceAVFObjC::readyStateFromMediaSourceChanged()
+{
+    ASSERT(m_mediaSourcePrivate);
+    ensureOnMainThread([weakThis = WeakPtr { *this }] {
+        if (RefPtr protectedThis = weakThis.get())
+            protectedThis->updateStateFromReadyState();
+    });
 }
 
 MediaTime MediaPlayerPrivateMediaSourceAVFObjC::maxTimeSeekable() const
@@ -889,7 +898,7 @@ std::optional<VideoPlaybackQualityMetrics> MediaPlayerPrivateMediaSourceAVFObjC:
 bool MediaPlayerPrivateMediaSourceAVFObjC::shouldBePlaying() const
 {
     assertIsMainThread();
-    return !m_renderer->paused() && !seeking() && m_readyState >= MediaPlayer::ReadyState::HaveFutureData;
+    return !m_renderer->paused() && !seeking() && readyState() >= MediaPlayer::ReadyState::HaveFutureData;
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::setHasAvailableVideoFrame(bool flag)
@@ -1050,14 +1059,19 @@ void MediaPlayerPrivateMediaSourceAVFObjC::setReadyState(MediaPlayer::ReadyState
         ALWAYS_LOG(LOGIDENTIFIER, "stall detected currentTime:", currentTime());
 
     m_readyState = readyState;
+    updateStateFromReadyState();
+}
 
+void MediaPlayerPrivateMediaSourceAVFObjC::updateStateFromReadyState()
+{
+    assertIsMainThread();
     if (shouldBePlaying()) {
         m_renderer->play();
         timeChanged();
     } else
         stall();
 
-    if (m_readyState >= MediaPlayer::ReadyState::HaveCurrentData && hasVideo() && !m_hasAvailableVideoFrame) {
+    if (readyState() >= MediaPlayer::ReadyState::HaveCurrentData && hasVideo() && !m_hasAvailableVideoFrame) {
         m_readyStateIsWaitingForAvailableFrame = true;
         return;
     }

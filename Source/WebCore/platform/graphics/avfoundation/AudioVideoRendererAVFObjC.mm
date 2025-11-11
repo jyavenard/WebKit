@@ -1007,7 +1007,7 @@ void AudioVideoRendererAVFObjC::maybeCompleteSeek()
         ALWAYS_LOG(LOGIDENTIFIER, "Not resuming playback, shouldBePlaying:false");
 
     if (auto promise = std::exchange(m_seekPromise, std::nullopt))
-        promise->resolve();
+        promise->resolve(m_lastSeekTime);
     ALWAYS_LOG(LOGIDENTIFIER, "seek completed");
 }
 

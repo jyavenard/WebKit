@@ -67,8 +67,6 @@ public:
     void markEndOfStream(EndOfStreamStatus) override;
     void unmarkEndOfStream() override;
 
-    MediaPlayer::ReadyState mediaPlayerReadyState() const override;
-    void setMediaPlayerReadyState(MediaPlayer::ReadyState) override;
     bool readyStateShouldAwaitHasAvailableVideoFrame() const final { return true; };
 
     void notifyActiveSourceBuffersChanged() final;

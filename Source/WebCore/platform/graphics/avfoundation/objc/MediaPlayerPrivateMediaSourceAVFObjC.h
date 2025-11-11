@@ -304,6 +304,9 @@ private:
 
     void isInFullscreenOrPictureInPictureChanged(bool) final;
 
+    void readyStateFromMediaSourceChanged() final;
+    void updateStateFromReadyState();
+
 #if ENABLE(LINEAR_MEDIA_PLAYER)
     bool supportsLinearMediaPlayer() const final { return true; }
 #endif
@@ -345,7 +348,7 @@ private:
     ThreadSafeWeakPtr<CDMSessionAVContentKeySession> m_session;
 #endif
     MediaPlayer::NetworkState m_networkState WTF_GUARDED_BY_CAPABILITY(mainThread);
-    MediaPlayer::ReadyState m_readyState WTF_GUARDED_BY_CAPABILITY(mainThread);
+    MediaPlayer::ReadyState m_readyState { MediaPlayer::ReadyState::HaveNothing };
     bool m_readyStateIsWaitingForAvailableFrame WTF_GUARDED_BY_CAPABILITY(mainThread) { false };
     MediaTime m_duration WTF_GUARDED_BY_CAPABILITY(mainThread) { MediaTime::invalidTime() };
     MediaTime m_lastSeekTime WTF_GUARDED_BY_CAPABILITY(mainThread);

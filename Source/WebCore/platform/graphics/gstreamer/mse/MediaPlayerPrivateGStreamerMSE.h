@@ -77,7 +77,7 @@ public:
     bool supportsProgressMonitoring() const override { return false; }
 
     void setNetworkState(MediaPlayer::NetworkState);
-    void setReadyState(MediaPlayer::ReadyState);
+    void readyStateFromMediaSourceChanged() final;
 
     void setInitialVideoSize(const FloatSize&);
 

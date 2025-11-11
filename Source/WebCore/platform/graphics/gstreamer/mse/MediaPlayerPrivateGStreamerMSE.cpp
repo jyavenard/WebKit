@@ -344,41 +344,43 @@ void MediaPlayerPrivateGStreamerMSE::setNetworkState(MediaPlayer::NetworkState n
         player->networkStateChanged();
 }
 
-void MediaPlayerPrivateGStreamerMSE::setReadyState(MediaPlayer::ReadyState mediaSourceReadyState)
+void MediaPlayerPrivateGStreamerMSE::readyStateFromMediaSourceChanged()
 {
+    assertIsMainThread();
     // Something important to bear in mind is that the readyState we get here comes from MediaSource.
     // From MediaSource perspective, as long as the sample for currentTime exists in the sample map, we are >= HaveCurrentData.
     // This is NOT true from the player perspective though, because there needs to pass some time since we have the first frame
     // (>=HaveCurrentData for MediaSource) and we have decoded it and sent it to the sink/compositor (>=HaveCurrentData in HTMLMediaElement).
     // The way we implement this is by keeping track of the MediaSource readyState internally in m_mediaSourceReadyState but not
     // spreading states >= HaveCurrentData to the player until prerolled.
+    RefPtr mediaSourcePrivate = m_mediaSourcePrivate;
+    auto mediaSourceReadyState = mediaSourcePrivate ? mediaSourcePrivate->mediaPlayerReadyState() : MediaPlayer::ReadyState::HaveNothing;
     if (mediaSourceReadyState == m_mediaSourceReadyState)
         return;
 
+    ASSERT(mediaSourceReadyState < MediaPlayer::ReadyState::HaveCurrentData || !m_isWaitingForPreroll);
     GST_DEBUG("MediaSource called setReadyState(%p): %s -> %s Current player state: %s Waiting for preroll: %s", this,
         dumpReadyState(m_mediaSourceReadyState), dumpReadyState(mediaSourceReadyState), dumpReadyState(m_readyState), boolForPrinting(m_isWaitingForPreroll));
     m_mediaSourceReadyState = mediaSourceReadyState;
 
-    if (mediaSourceReadyState < MediaPlayer::ReadyState::HaveCurrentData || !m_isWaitingForPreroll)
-        propagateReadyStateToPlayer();
+    propagateReadyStateToPlayer();
 }
 
 void MediaPlayerPrivateGStreamerMSE::propagateReadyStateToPlayer()
 {
-    ASSERT(m_mediaSourceReadyState < MediaPlayer::ReadyState::HaveCurrentData || !m_isWaitingForPreroll);
     if (m_readyState == m_mediaSourceReadyState)
         return;
     GST_DEBUG("Propagating MediaSource readyState %s to player ready state (currently %s)", dumpReadyState(m_mediaSourceReadyState), dumpReadyState(m_readyState));
 
     m_readyState = m_mediaSourceReadyState;
     updateStates(); // Set the pipeline to PLAYING or PAUSED if necessary.
-    auto player = m_player.get();
+    RefPtr player = m_player.get();
     if (player)
         player->readyStateChanged();
 
     // The readyState change may be a result of monitorSourceBuffers() finding that currentTime == duration, which
     // should cause the video to be marked as ended. Let's have the player check that.
-    if (player && (!m_isWaitingForPreroll || currentTime() == duration()))
+    if (player && (currentTime() == duration()))
         player->timeChanged();
 }
 
@@ -412,8 +414,6 @@ void MediaPlayerPrivateGStreamerMSE::didPreroll()
         // By calling timeChanged(), m_isSeeking will be checked an a "seeked" event will be emitted.
         timeChanged(currentTime());
     }
-
-    propagateReadyStateToPlayer();
 }
 
 const PlatformTimeRanges& MediaPlayerPrivateGStreamerMSE::buffered() const

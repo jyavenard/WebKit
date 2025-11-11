@@ -222,16 +222,11 @@ void MediaSourcePrivateRemote::unmarkEndOfStream()
     });
 }
 
-MediaPlayer::ReadyState MediaSourcePrivateRemote::mediaPlayerReadyState() const
-{
-    return m_mediaPlayerReadyState;
-}
-
 void MediaSourcePrivateRemote::setMediaPlayerReadyState(MediaPlayer::ReadyState readyState)
 {
     // Call from MediaSource's dispatcher.
 #if !RELEASE_LOG_DISABLED
-    if (m_mediaPlayerReadyState > MediaPlayer::ReadyState::HaveCurrentData && readyState == MediaPlayer::ReadyState::HaveCurrentData) {
+    if (mediaPlayerReadyState() > MediaPlayer::ReadyState::HaveCurrentData && readyState == MediaPlayer::ReadyState::HaveCurrentData) {
         RefPtr player = m_mediaPlayerPrivate.get();
         auto currentTime = player->currentTime();
         auto buffered = this->buffered();
@@ -239,7 +234,7 @@ void MediaSourcePrivateRemote::setMediaPlayerReadyState(MediaPlayer::ReadyState 
         ALWAYS_LOG(LOGIDENTIFIER, "stall detected at:", currentTime, " duration:", duration, " buffered:", buffered);
     }
 #endif
-    m_mediaPlayerReadyState = readyState;
+    MediaSourcePrivate::setMediaPlayerReadyState(readyState);
     ensureOnDispatcher([protectedThis = Ref { *this }, this, readyState] {
         auto gpuProcessConnection = m_gpuProcessConnection.get();
         if (!isGPURunning() || !gpuProcessConnection)

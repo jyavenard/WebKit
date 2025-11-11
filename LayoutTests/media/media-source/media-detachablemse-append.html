@@ -45,8 +45,7 @@
         testExpected('video.audioTracks.length >= 1', true);
 
         run('source.endOfStream()');
-        waitFor(source, 'sourceended');
-        await loadedDataPromise;
+        await Promise.all([ loadedDataPromise, waitFor(source, 'sourceended') ]);
 
         run('readyState = video.readyState');
 

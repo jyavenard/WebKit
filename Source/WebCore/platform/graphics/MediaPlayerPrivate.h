@@ -63,6 +63,7 @@ public:
 
 #if ENABLE(MEDIA_SOURCE)
     virtual void load(const URL&, const LoadOptions&, MediaSourcePrivateClient&) = 0;
+    virtual void readyStateFromMediaSourceChanged() { }
 #endif
 #if ENABLE(MEDIA_STREAM)
     virtual void load(MediaStreamPrivate&) = 0;
