@@ -280,6 +280,7 @@ bool MediaPlayerPrivateGStreamerMSE::doSeek(const SeekTarget& target, float rate
     // This will also add support for fastSeek once done (see webkit.org/b/260607)
     if (!m_mediaSourcePrivate)
         return false;
+    m_mediaSourcePrivate->mediaPlayerHasAvailableVideoFrameChanged(false);
     m_mediaSourcePrivate->willSeek();
     m_mediaSourcePrivate->waitForTarget(target)->whenSettled(RunLoop::currentSingleton(), [this, weakThis = ThreadSafeWeakPtr { *this }](auto&& result) {
         RefPtr self = weakThis.get();
@@ -396,6 +397,8 @@ void MediaPlayerPrivateGStreamerMSE::didPreroll()
         return;
     }
     m_isWaitingForPreroll = false;
+    if (m_mediaSourcePrivate)
+        m_mediaSourcePrivate->mediaPlayerHasAvailableVideoFrameChanged(true);
 
     // The order of these sections is important. In the case of a seek, the "seeked" event must be emitted
     // before the "playing" event (which is emitted on HAVE_ENOUGH_DATA). Therefore, we take care of them in

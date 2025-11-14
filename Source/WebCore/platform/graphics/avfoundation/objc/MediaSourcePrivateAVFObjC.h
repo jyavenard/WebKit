@@ -76,6 +76,7 @@ public:
 
     MediaPlayer::ReadyState mediaPlayerReadyState() const final;
     void setMediaPlayerReadyState(MediaPlayer::ReadyState) final;
+    bool readyStateShouldAwaitHasAvailableVideoFrame() const final { return true; };
 
     bool hasSelectedVideo() const;
 

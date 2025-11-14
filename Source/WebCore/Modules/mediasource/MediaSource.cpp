@@ -171,10 +171,17 @@ private:
         return m_private;
     }
 
-    void failedToCreateRenderer(RendererType type)
+    void failedToCreateRenderer(RendererType type) final
     {
         ensureWeakOnDispatcher([type](MediaSource& parent) {
             parent.failedToCreateRenderer(type);
+        });
+    }
+
+    void mediaPlayerHasAvailableVideoFrameChanged(bool available) final
+    {
+        ensureWeakOnDispatcher([available](MediaSource& parent) {
+            parent.mediaPlayerHasAvailableVideoFrameChanged(available);
         });
     }
 
@@ -615,6 +622,13 @@ void MediaSource::monitorSourceBuffers()
         msp->setMediaPlayerReadyState(MediaPlayer::ReadyState::HaveMetadata);
 
         // 3. Abort these steps.
+        return;
+    }
+
+    bool waitForAvailableFrame = msp->readyStateShouldAwaitHasAvailableVideoFrame() && msp->hasVideo() && !m_hasAvailableVideoFrame;
+    if (waitForAvailableFrame) {
+        if (m_pendingSeekTarget)
+            completeSeek();
         return;
     }
 
@@ -1597,6 +1611,17 @@ void MediaSource::failedToCreateRenderer(RendererType type)
 {
     if (RefPtr context = scriptExecutionContext())
         context->addConsoleMessage(MessageSource::JS, MessageLevel::Error, makeString("MediaSource "_s, type == RendererType::Video ? "video"_s : "audio"_s, " renderer creation failed."_s));
+}
+
+void MediaSource::mediaPlayerHasAvailableVideoFrameChanged(bool available)
+{
+    if (isClosed())
+        return;
+    Ref msp = protectedPrivate().releaseNonNull();
+    if (!msp->readyStateShouldAwaitHasAvailableVideoFrame())
+        return;
+    if (std::exchange(m_hasAvailableVideoFrame, available) != available)
+        monitorSourceBuffers();
 }
 
 void MediaSource::sourceBufferReceivedFirstInitializationSegmentChanged()

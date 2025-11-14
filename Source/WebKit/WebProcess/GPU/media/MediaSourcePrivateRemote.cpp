@@ -163,6 +163,15 @@ void MediaSourcePrivateRemote::shutdown()
     });
 }
 
+bool MediaSourcePrivateRemote::readyStateShouldAwaitHasAvailableVideoFrame() const
+{
+#if USE(AV_FOUNDATION) || USE(GSTREAMER)
+    return true;
+#else
+    return false;
+#endif
+}
+
 void MediaSourcePrivateRemote::durationChanged(const MediaTime& duration)
 {
     // Called from the MediaSource's dispatcher.
@@ -269,6 +278,14 @@ void MediaSourcePrivateRemote::MessageReceiver::proxyWaitForTarget(const WebCore
         return;
     }
     completionHandler(makeUnexpected(PlatformMediaError::ClientDisconnected));
+}
+
+void MediaSourcePrivateRemote::MessageReceiver::mediaPlayerHasAvailableVideoFrameChanged(bool available)
+{
+    assertIsCurrent(MediaSourcePrivateRemote::queueSingleton());
+
+    if (auto client = this->client())
+        client->mediaPlayerHasAvailableVideoFrameChanged(available);
 }
 
 MediaSourcePrivateRemote::MessageReceiver::MessageReceiver(MediaSourcePrivateRemote& parent)

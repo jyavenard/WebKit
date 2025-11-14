@@ -209,6 +209,8 @@ private:
     using RendererType = MediaSourcePrivateClient::RendererType;
     void failedToCreateRenderer(RendererType);
 
+    void mediaPlayerHasAvailableVideoFrameChanged(bool);
+
     void refEventTarget() final { ref(); }
     void derefEventTarget() final { deref(); }
     enum EventTargetInterfaceType eventTargetInterface() const final;
@@ -243,6 +245,7 @@ private:
     bool m_sourceopenPending { false };
     bool m_isAttached { false };
     std::optional<ReadyState> m_readyStateBeforeDetached;
+    bool m_hasAvailableVideoFrame { false };
 #if ENABLE(MEDIA_SOURCE_IN_WORKERS)
     RefPtr<MediaSourceHandle> m_handle;
 #endif

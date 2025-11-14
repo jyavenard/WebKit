@@ -69,6 +69,7 @@ public:
 
     MediaPlayer::ReadyState mediaPlayerReadyState() const override;
     void setMediaPlayerReadyState(MediaPlayer::ReadyState) override;
+    bool readyStateShouldAwaitHasAvailableVideoFrame() const final { return true; };
 
     void notifyActiveSourceBuffersChanged() final;
 

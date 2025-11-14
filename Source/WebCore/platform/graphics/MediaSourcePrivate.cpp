@@ -339,6 +339,12 @@ bool MediaSourcePrivate::timeIsProgressing() const
     return false;
 }
 
+void MediaSourcePrivate::mediaPlayerHasAvailableVideoFrameChanged(bool available)
+{
+    if (RefPtr client = this->client())
+        return client->mediaPlayerHasAvailableVideoFrameChanged(available);
+}
+
 void MediaSourcePrivate::shutdown()
 {
 }

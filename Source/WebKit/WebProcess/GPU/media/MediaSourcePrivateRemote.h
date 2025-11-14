@@ -75,6 +75,7 @@ public:
     void setMediaPlayerReadyState(WebCore::MediaPlayer::ReadyState) final;
     void setPlayer(WebCore::MediaPlayerPrivateInterface*) final;
     void shutdown() final;
+    bool readyStateShouldAwaitHasAvailableVideoFrame() const final;
 
     void setTimeFudgeFactor(const MediaTime&) final;
 
@@ -98,6 +99,7 @@ public:
         MessageReceiver(MediaSourcePrivateRemote&);
         void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
         void proxyWaitForTarget(const WebCore::SeekTarget&, CompletionHandler<void(WebCore::MediaTimePromise::Result&&)>&&);
+        void mediaPlayerHasAvailableVideoFrameChanged(bool);
 
         RefPtr<WebCore::MediaSourcePrivateClient> client() const;
         ThreadSafeWeakPtr<MediaSourcePrivateRemote> m_parent;

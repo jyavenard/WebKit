@@ -127,6 +127,9 @@ public:
     void setStreamingAllowed(bool value) { m_streamingAllowed = value; }
     bool streamingAllowed() const { return m_streamingAllowed; }
 
+    virtual bool readyStateShouldAwaitHasAvailableVideoFrame() const { return false; }
+    void mediaPlayerHasAvailableVideoFrameChanged(bool);
+
 protected:
     MediaSourcePrivate(MediaSourcePrivateClient&, WorkQueue&);
     void ensureOnDispatcher(Function<void()>&&) const;

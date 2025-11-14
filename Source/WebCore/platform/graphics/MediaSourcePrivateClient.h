@@ -54,6 +54,7 @@ public:
 
     enum class RendererType { Audio, Video };
     virtual void failedToCreateRenderer(RendererType) = 0;
+    virtual void mediaPlayerHasAvailableVideoFrameChanged(bool) { }
 };
 
 }

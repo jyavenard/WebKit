@@ -100,6 +100,12 @@ Ref<MediaTimePromise> RemoteMediaSourceProxy::waitForTarget(const SeekTarget& ta
     return MediaTimePromise::createAndReject(PlatformMediaError::IPCError);
 }
 
+void RemoteMediaSourceProxy::mediaPlayerHasAvailableVideoFrameChanged(bool available)
+{
+    if (RefPtr connection = connectionToWebProcess())
+        connection->connection().send(Messages::MediaSourcePrivateRemoteMessageReceiver::MediaPlayerHasAvailableVideoFrameChanged(available), m_identifier);
+}
+
 #if !RELEASE_LOG_DISABLED
 void RemoteMediaSourceProxy::setLogIdentifier(uint64_t)
 {

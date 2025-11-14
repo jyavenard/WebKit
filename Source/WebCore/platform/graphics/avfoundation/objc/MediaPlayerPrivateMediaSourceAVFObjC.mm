@@ -901,6 +901,9 @@ void MediaPlayerPrivateMediaSourceAVFObjC::setHasAvailableVideoFrame(bool flag)
     ALWAYS_LOG(LOGIDENTIFIER, flag);
     m_hasAvailableVideoFrame = flag;
 
+    if (RefPtr mediaSourcePrivate = m_mediaSourcePrivate)
+        mediaSourcePrivate->mediaPlayerHasAvailableVideoFrameChanged(flag);
+
     if (!m_hasAvailableVideoFrame)
         return;
 
