@@ -2415,4 +2415,4 @@ webkit.org/b/302174 [ Tahoe Debug arm64 ] platform/mac/media/encrypted-media/fps
 [ Tahoe Debug arm64 ] fast/webgpu/nocrash/ [ Skip ]
 [ Tahoe Debug arm64 ] fast/selectors/is-backtracking.html [ Skip ]
 
-webkit.org/b/302935 [ Sonoma ] media/media-source/media-source-allowed-codecs.html [ Failure ]
+webkit.org/b/302935 [ x86_64 ] media/media-source/media-source-allowed-codecs.html [ Failure ]

@@ -80,6 +80,7 @@ private:
     void gpuProcessConnectionDidClose(GPUProcessConnection&) final;
 
     friend class MediaPlayerRemoteFactory;
+    friend class WebMediaStrategy;
     void getSupportedTypes(WebCore::MediaPlayerEnums::MediaEngineIdentifier, HashSet<String>&);
     WebCore::MediaPlayer::SupportsType supportsTypeAndCodecs(WebCore::MediaPlayerEnums::MediaEngineIdentifier, const WebCore::MediaEngineSupportParameters&);
     bool supportsKeySystem(WebCore::MediaPlayerEnums::MediaEngineIdentifier, const String& keySystem, const String& mimeType);

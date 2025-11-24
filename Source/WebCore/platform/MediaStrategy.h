@@ -45,6 +45,7 @@ class AudioDestination;
 class AudioIOCallback;
 class AudioVideoRenderer;
 class CDMFactory;
+struct MediaEngineSupportParameters;
 class NowPlayingManager;
 class VideoFrame;
 
@@ -61,6 +62,7 @@ public:
     virtual RefPtr<AudioVideoRenderer> createAudioVideoRenderer(WTF::LoggerHelper*, HTMLMediaElementIdentifier, MediaPlayerIdentifier) const;
     bool hasRemoteRendererFor(MediaPlayerMediaEngineIdentifier) const;
     void enableRemoteRenderer(MediaPlayerMediaEngineIdentifier, bool);
+    virtual MediaPlayerEnums::SupportsType supportsType(const MediaEngineSupportParameters&) const;
 #endif
     virtual std::unique_ptr<NowPlayingManager> createNowPlayingManager() const;
     void resetMediaEngines();

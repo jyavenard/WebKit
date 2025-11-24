@@ -188,8 +188,10 @@ MediaPlayer::SupportsType MediaPlayerPrivateMediaSourceAVFObjC::supportsTypeAndC
 
     auto supported = SourceBufferParser::isContentTypeSupported(parameters.type);
 
-    if (supported != MediaPlayer::SupportsType::IsSupported)
-        return supported;
+    if (supported != MediaPlayer::SupportsType::IsSupported) {
+        if (!hasPlatformStrategies() || platformStrategies()->mediaStrategy()->supportsType(parameters) != MediaPlayer::SupportsType::IsSupported)
+            return supported;
+    }
 
     if (!contentTypeMeetsHardwareDecodeRequirements(parameters.type, parameters.contentTypesRequiringHardwareSupport))
         return MediaPlayer::SupportsType::IsNotSupported;

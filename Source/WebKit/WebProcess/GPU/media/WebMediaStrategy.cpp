@@ -76,6 +76,17 @@ RefPtr<AudioVideoRenderer> WebMediaStrategy::createAudioVideoRenderer(LoggerHelp
 {
     return AudioVideoRendererRemote::create(loggerHelper, mediaElementIdentifier, playerIdentifier, WebProcess::singleton().ensureProtectedGPUProcessConnection());
 }
+
+MediaPlayerEnums::SupportsType WebMediaStrategy::supportsType(const MediaEngineSupportParameters& parameters) const
+{
+#if USE(AVFOUNDATION)
+    Ref mediaPlayerManager = WebProcess::singleton().protectedRemoteMediaPlayerManager();
+    if (parameters.isMediaSource)
+        return mediaPlayerManager->supportsTypeAndCodecs(MediaPlayerMediaEngineIdentifier::AVFoundationMSE, parameters);
+#endif
+    return MediaStrategy::supportsType(parameters);
+}
+
 #endif
 
 std::unique_ptr<WebCore::NowPlayingManager> WebMediaStrategy::createNowPlayingManager() const

@@ -108,6 +108,11 @@ void MediaStrategy::enableRemoteRenderer(MediaPlayerMediaEngineIdentifier type, 
 {
     m_remoteRenderersEnabled.set(static_cast<uint16_t>(type), enabled);
 }
+
+MediaPlayerEnums::SupportsType MediaStrategy::supportsType(const MediaEngineSupportParameters&) const
+{
+    return MediaPlayerEnums::SupportsType::IsNotSupported;
+}
 #endif
 
 }
