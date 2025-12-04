@@ -607,7 +607,7 @@ void MediaPlayerPrivateWebM::addSecurityOrigin(const ResourceResponse& response)
     m_origins.add(SecurityOrigin::create(response.url()));
 }
 
-void MediaPlayerPrivateWebM::seekToTarget(const SeekTarget& target)
+Ref<MediaTimePromise> MediaPlayerPrivateWebM::seekToTarget(const SeekTarget& target)
 {
     assertIsMainThread();
     ALWAYS_LOG(LOGIDENTIFIER, "time = ", target.time, ", negativeThreshold = ", target.negativeThreshold, ", positiveThreshold = ", target.positiveThreshold);
@@ -618,6 +618,9 @@ void MediaPlayerPrivateWebM::seekToTarget(const SeekTarget& target)
     if (m_seekTimer.isActive())
         m_seekTimer.stop();
     m_seekTimer.startOneShot(0_s);
+
+    m_seekPromise.emplace(PlatformMediaError::Cancelled);
+    return *m_seekPromise;
 }
 
 void MediaPlayerPrivateWebM::seekInternal()
@@ -683,17 +686,15 @@ void MediaPlayerPrivateWebM::completeSeek(const MediaTime& seekedTime)
     assertIsCurrent(runningQueue());
     ALWAYS_LOG(LOGIDENTIFIER, "");
 
-    m_seeking = false;
-
     monitorReadyState();
 
     ensureOnMainThread([weakThis = ThreadSafeWeakPtr { *this }, seekedTime] {
-        if (RefPtr protectedThis = weakThis.get()) {
-            if (RefPtr player = protectedThis->m_player.get()) {
-                player->seeked(seekedTime);
-                player->timeChanged();
-            }
-        }
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
+            return;
+        assertIsMainThread();
+        if (auto seekPromise = std::exchange(protectedThis->m_seekPromise, std::nullopt))
+            seekPromise->resolve(seekedTime);
     });
 }
 
@@ -1599,7 +1600,7 @@ void MediaPlayerPrivateWebM::didProvideMediaDataForTrackId(Ref<MediaSampleAVFObj
         m_readyForMoreSamplesMap[trackId] = true;
         return;
     }
-    if (m_seeking || m_layerRequiresFlush)
+    if (seeking() || m_layerRequiresFlush)
         return;
     notifyClientWhenReadyForMoreSamples(trackId);
 }
