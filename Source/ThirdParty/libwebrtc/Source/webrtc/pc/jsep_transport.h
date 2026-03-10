@@ -44,6 +44,10 @@
 
 namespace webrtc {
 
+// Maximum reasonable number of encrypted header extension IDs to prevent
+// memory allocation crashes from corrupted vectors
+constexpr size_t kMaxReasonableExtensionIds = 1000;  // RTP extensions are typically < 20
+
 struct JsepTransportDescription {
  public:
   JsepTransportDescription();

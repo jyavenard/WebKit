@@ -53,6 +53,20 @@ using webrtc::SdpType;
 
 namespace webrtc {
 
+namespace {
+// Helper function to safely get extension IDs, avoiding unnecessary copies
+const std::vector<int>& GetSafeExtensionIds(const std::vector<int>& extension_ids) {
+  if (extension_ids.size() > kMaxReasonableExtensionIds) {
+    RTC_LOG(LS_ERROR) << "Detected unreasonable number of encrypted extension IDs: "
+                      << extension_ids.size() << " (max expected: " << kMaxReasonableExtensionIds
+                      << "). Using empty vector to prevent crash.";
+    static const std::vector<int> kEmptyExtensionIds;
+    return kEmptyExtensionIds;
+  }
+  return extension_ids;
+}
+}  // namespace
+
 JsepTransportDescription::JsepTransportDescription() {}
 
 JsepTransportDescription::JsepTransportDescription(
@@ -61,14 +75,14 @@ JsepTransportDescription::JsepTransportDescription(
     int rtp_abs_sendtime_extn_id,
     const TransportDescription& transport_desc)
     : rtcp_mux_enabled(rtcp_mux_enabled),
-      encrypted_header_extension_ids(encrypted_header_extension_ids),
+      encrypted_header_extension_ids(GetSafeExtensionIds(encrypted_header_extension_ids)),
       rtp_abs_sendtime_extn_id(rtp_abs_sendtime_extn_id),
       transport_desc(transport_desc) {}
 
 JsepTransportDescription::JsepTransportDescription(
     const JsepTransportDescription& from)
     : rtcp_mux_enabled(from.rtcp_mux_enabled),
-      encrypted_header_extension_ids(from.encrypted_header_extension_ids),
+      encrypted_header_extension_ids(GetSafeExtensionIds(from.encrypted_header_extension_ids)),
       rtp_abs_sendtime_extn_id(from.rtp_abs_sendtime_extn_id),
       transport_desc(from.transport_desc) {}
 
@@ -80,7 +94,7 @@ JsepTransportDescription& JsepTransportDescription::operator=(
     return *this;
   }
   rtcp_mux_enabled = from.rtcp_mux_enabled;
-  encrypted_header_extension_ids = from.encrypted_header_extension_ids;
+  encrypted_header_extension_ids = GetSafeExtensionIds(from.encrypted_header_extension_ids);
   rtp_abs_sendtime_extn_id = from.rtp_abs_sendtime_extn_id;
   transport_desc = from.transport_desc;
 
