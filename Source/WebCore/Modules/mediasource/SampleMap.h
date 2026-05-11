@@ -102,7 +102,6 @@ public:
     WEBCORE_EXPORT iterator findSyncSamplePriorToDecodeKey(const KeyType&) LIFETIME_BOUND;
     WEBCORE_EXPORT iterator findSyncSampleAfterDecodeIterator(iterator) LIFETIME_BOUND;
     WEBCORE_EXPORT reverse_iterator_range findDependentSamples(const MediaSample&) LIFETIME_BOUND;
-    WEBCORE_EXPORT Vector<value_type> findSamplesBetweenDecodeKeys(const KeyType&, const KeyType&);
 
 private:
     MapType m_samples;

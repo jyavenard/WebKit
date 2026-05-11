@@ -324,22 +324,4 @@ DecodeOrderSampleMap::reverse_iterator_range DecodeOrderSampleMap::findDependent
     return reverse_iterator_range(currentDecodeIter, nextSyncSample);
 }
 
-Vector<DecodeOrderSampleMap::value_type> DecodeOrderSampleMap::findSamplesBetweenDecodeKeys(const KeyType& beginKey, const KeyType& endKey)
-{
-    if (endKey <= beginKey)
-        return { };
-
-    // beginKey is inclusive, so use lower_bound to include samples wich start exactly at beginKey.
-    // endKey is not inclusive, so use lower_bound to exclude samples which start exactly at endKey.
-    auto lower_bound = m_samples.lower_bound(beginKey);
-    if (lower_bound == m_samples.end())
-        return { };
-
-    Vector<value_type> samples;
-    auto upper_bound = m_samples.lower_bound(endKey);
-    for (auto iterator = lower_bound; iterator != upper_bound && iterator != m_samples.end(); ++iterator)
-        samples.append(*iterator);
-    return samples;
-}
-
 }

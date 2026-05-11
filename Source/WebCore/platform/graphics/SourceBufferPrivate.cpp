@@ -1356,17 +1356,13 @@ bool SourceBufferPrivate::processMediaSample(SourceBufferPrivateClient& client, 
             while (nextSyncSample != trackBuffer.samples().decodeOrder().end() && Ref { nextSyncSample->second }->presentationTime() <= sample->presentationTime())
                 nextSyncSample = trackBuffer.samples().decodeOrder().findSyncSampleAfterDecodeIterator(nextSyncSample);
 
-            // Note that prev(begin()) is Undefined Behaviour, so we exclude that case for nextSyncSample in the if.
-            // We also want to make sure that the list isn't empty in case nextSyncSample is end(), so there's at least
-            // a previous element to get in that case.
-            if (nextSampleInDecodeOrderRef->presentationTime() < sample->presentationTime()
-                && nextSyncSample != trackBuffer.samples().decodeOrder().begin()
-                && trackBuffer.samples().decodeOrder().size() > 0) {
+            if (nextSampleInDecodeOrderRef->presentationTime() < sample->presentationTime()) {
                 // Try to fix the out-of-ordering by placing the decoding timestamp of sample after the decoding timestamp
-                // of the last pre-existing sample before the next sync sample whis has a presentationTime lower than sample.
+                // of the last pre-existing sample before the next sync sample which has a presentationTime lower than sample.
                 // This would have been the last sample to be erased if this decoding timestamp correction wasn't applied.
+                // std::prev(nextSyncSample) is always safe: findSyncSampleAfterDecodeIterator advances strictly forward
+                // from nextSampleInDecodeOrder (which is not end()), so nextSyncSample is never decodeOrder().begin().
                 auto lastSampleBeforeSyncOrBeforeEnd = std::prev(nextSyncSample);
-                // We also exclude the case of no sample previous to the last one.
                 auto lastSampleBeforeSyncOrBeforeEndRef = lastSampleBeforeSyncOrBeforeEnd->second;
                 if (lastSampleBeforeSyncOrBeforeEndRef->presentationTime() < sample->presentationTime()) {
                     const MediaTime epsilon = MediaTime(100, 1000000); // 100 µs.
@@ -1429,13 +1425,6 @@ bool SourceBufferPrivate::processMediaSample(SourceBufferPrivateClient& client, 
             auto lastDecodeIter = trackBuffer.samples().decodeOrder().findSampleWithDecodeKey(erasedSamples.decodeOrder().rbegin()->first);
             auto nextSyncIter = trackBuffer.samples().decodeOrder().findSyncSampleAfterDecodeIterator(lastDecodeIter);
             dependentSamples.insert(firstDecodeIter, nextSyncIter);
-
-            // NOTE: in the case of b-frames, the previous step may leave in place samples whose presentation
-            // timestamp < presentationTime, but whose decode timestamp >= decodeTime. These will eventually cause
-            // a decode error if left in place, so remove these samples as well.
-            DecodeOrderSampleMap::KeyType decodeKey(sample->decodeTime(), sample->presentationTime());
-            if (auto samplesWithHigherDecodeTimes = trackBuffer.samples().decodeOrder().findSamplesBetweenDecodeKeys(decodeKey, erasedSamples.decodeOrder().begin()->first); samplesWithHigherDecodeTimes.size())
-                dependentSamples.insert(samplesWithHigherDecodeTimes.begin(), samplesWithHigherDecodeTimes.end());
 
             PlatformTimeRanges erasedRanges = removeSamplesFromTrackBuffer(dependentSamples, trackBuffer, "didReceiveSample"_s);
 
