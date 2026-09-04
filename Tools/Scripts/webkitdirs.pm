@@ -79,6 +79,7 @@ BEGIN {
        &availableXcodeSDKs
        &baseProductDir
        &buildCMakeProjectOrExit
+       &buildSystem
        &buildVisualStudioProject
        &buildXCodeProject
        &buildXcodeScheme
@@ -105,7 +106,6 @@ BEGIN {
        &determineCrossTarget
        &determineDefaultCompiler
        &determineXcodeSDK
-       &enableLastBuiltTiebreaker
        &executableProductDir
        &exitStatus
        &extractNonMacOSHostConfiguration
@@ -156,6 +156,7 @@ BEGIN {
        &osXVersion
        &overrideConfiguredXcodeWorkspace
        &parseAvailableXcodeSDKs
+       &passedBuildSystem
        &passedConfiguration
        &plistPathFromBundle
        &portName
@@ -163,6 +164,7 @@ BEGIN {
        &printHelpAndExitForRunAndDebugWebKitAppIfNeeded
        &productDir
        &prohibitUnknownPort
+       &recordBuildSettings
        &relativeScriptsDir
        &removeCMakeCache
        &runGitUpdate
@@ -209,6 +211,7 @@ BEGIN {
        &willUseVisionSimulatorSDK
        &winVersion
        &wrapperPrefixIfNeeded
+       &writeBuildSetting
        &xcodeSDK
        &xcodeSDKPlatformName
        &xcodeVersion
@@ -274,7 +277,7 @@ my $osXVersion;
 my $iosVersion;
 my $generateDsym;
 my $isCMakeBuild;
-my $shouldPickLastBuilt = 0;
+my $buildSystemExplanation;
 my $isGenerateProjectOnly;
 my $shouldBuild32Bit;
 my $isInspectorFrontend;
@@ -701,19 +704,27 @@ sub readSanitizerConfiguration($)
     return 0;
 }
 
+my %passedSanitizers;
+sub passedSanitizer($)
+{
+    my ($sanitizer) = @_;
+    $passedSanitizers{$sanitizer} = checkForArgumentAndRemoveFromARGV("--" . lc $sanitizer) ? 1 : 0 unless defined $passedSanitizers{$sanitizer};
+    return $passedSanitizers{$sanitizer};
+}
+
 sub determineASanIsEnabled
 {
     return if defined $asanIsEnabled;
     determineBaseProductDir();
     # Honor an explicit --asan (like --cmake) in addition to the marker file.
-    $asanIsEnabled = checkForArgumentAndRemoveFromARGV("--asan") || readSanitizerConfiguration("ASan");
+    $asanIsEnabled = passedSanitizer("ASan") || readSanitizerConfiguration("ASan");
 }
 
 sub determineTSanIsEnabled
 {
     return if defined $tsanIsEnabled;
     determineBaseProductDir();
-    $tsanIsEnabled = checkForArgumentAndRemoveFromARGV("--tsan") || readSanitizerConfiguration("TSan");
+    $tsanIsEnabled = passedSanitizer("TSan") || readSanitizerConfiguration("TSan");
 }
 
 sub determineUBSanIsEnabled
@@ -855,7 +866,9 @@ sub argumentsForConfiguration()
     push(@args, '--visionos-simulator') if (defined $xcodeSDKPlatformName && $xcodeSDKPlatformName eq 'xrsimulator');
     push(@args, '--maccatalyst') if (defined $xcodeSDKPlatformName && $xcodeSDKPlatformName eq 'maccatalyst');
     push(@args, '--32-bit') if ($architecture eq "x86");
-    push(@args, '--cmake') if (isAppleCocoaWebKit() && isCMakeBuild());
+    # Only propagate an explicit --cmake or --xcode. Without one the child reads
+    # the same BuildSystem marker this process did.
+    push(@args, isCMakeBuild() ? '--cmake' : '--xcode') if (isAppleCocoaWebKit() && passedBuildSystem());
     push(@args, '--gtk') if isGtk();
     push(@args, '--wpe') if isWPE();
     push(@args, '--jsc-only') if isJSCOnly();
@@ -1554,6 +1567,30 @@ sub passedConfiguration
     return $passedConfiguration;
 }
 
+my $passedBuildSystem;
+my $passedBuildSystemArgument;
+my $searchedForPassedBuildSystem;
+sub determinePassedBuildSystem
+{
+    return if $searchedForPassedBuildSystem;
+    $searchedForPassedBuildSystem = 1;
+    $passedBuildSystem = undef;
+
+    if (checkForArgumentAndRemoveFromARGV("--cmake")) {
+        $passedBuildSystem = "CMake";
+        $passedBuildSystemArgument = "--cmake";
+    } elsif (checkForArgumentAndRemoveFromARGV("--xcode")) {
+        $passedBuildSystem = "Xcode";
+        $passedBuildSystemArgument = "--xcode";
+    }
+}
+
+sub passedBuildSystem
+{
+    determinePassedBuildSystem();
+    return $passedBuildSystem;
+}
+
 sub setConfiguration
 {
     if (my $config = shift @_) {
@@ -1685,6 +1722,7 @@ sub checkBuild
     if (!-d $productDir) {
         print "No build products could be found for specified build:\n";
         print "  configuration: \"$configuration\" [$configurationExplanation]\n";
+        print "  build system:  \"@{[buildSystem()]}\" [$buildSystemExplanation]\n" if isAppleCocoaWebKit();
         print "  platform:      \"$xcodeSDKPlatformName\" [$xcodeSDKPlatformNameExplanation]" if isEmbeddedWebKit() || isMacCatalystWebKit();
         print "  products:      $productDir\n\n";
 
@@ -1703,6 +1741,7 @@ sub checkBuild
         if (!-e $dylibPath) {
             print "A dylib, \"$framework\", needed to run this command is missing for specified build:\n";
             print "  configuration: \"$configuration\" [$configurationExplanation]\n";
+            print "  build system:  \"@{[buildSystem()]}\" [$buildSystemExplanation]\n" if isAppleCocoaWebKit();
             print "  platform:      \"$xcodeSDKPlatformName\" [$xcodeSDKPlatformNameExplanation]" if isEmbeddedWebKit() || isMacCatalystWebKit();
             print "  products:      $productDir\n\n";
 
@@ -3199,62 +3238,27 @@ sub cmakeBasedPortName()
 sub determineIsCMakeBuild()
 {
     return if defined($isCMakeBuild);
-    $isCMakeBuild = checkForArgumentAndRemoveFromARGV("--cmake");
-    return if $isCMakeBuild;
-    if (checkForArgumentAndRemoveFromARGV("--xcode")) {
-        $isCMakeBuild = 0;
+
+    if (my $buildSystem = passedBuildSystem()) {
+        $isCMakeBuild = $buildSystem eq "CMake" ? 1 : 0;
+        $buildSystemExplanation = "via argument, `$passedBuildSystemArgument`";
         return;
     }
 
-    # CMake presets build into WebKitBuild/cmake-<platform>/<Configuration>. When
-    # both trees exist, Xcode wins unless a caller opts into the last-built
-    # tiebreaker via enableLastBuiltTiebreaker() (build drivers do not, so they
-    # never auto-flip).
-    if (isAppleCocoaWebKit()) {
-        determineBaseProductDir();
-        determineConfiguration();
-
-        # CMake sanitizer presets build into cmake-mac/ASan or cmake-mac/TSan, so
-        # resolve the tree the way determineConfigurationProductDir() does. Xcode
-        # toggles ASan within Debug/Release, so its path is unchanged.
-        my $cmakeConfiguration = $configuration;
-        $cmakeConfiguration = "ASan" if asanIsEnabled();
-        $cmakeConfiguration = "TSan" if tsanIsEnabled();
-        my $cmakeTreeName = cmakeCocoaTreeName();
-        my $cmakeBuild = File::Spec->catdir($baseProductDir, $cmakeTreeName, $cmakeConfiguration);
-        my $xcodeBuild = xcodeConfigurationProductDir();
-
-        if (-f File::Spec->catfile($cmakeBuild, "CMakeCache.txt") && !-d $xcodeBuild) {
-            $isCMakeBuild = 1;
+    determineBaseProductDir();
+    if (open BUILDSYSTEM, File::Spec->catfile($baseProductDir, "BuildSystem")) {
+        my $configuredBuildSystem = <BUILDSYSTEM>;
+        close BUILDSYSTEM;
+        chomp $configuredBuildSystem if defined $configuredBuildSystem;
+        if ($configuredBuildSystem) {
+            $isCMakeBuild = $configuredBuildSystem eq "CMake" ? 1 : 0;
+            $buildSystemExplanation = "via `set-webkit-configuration`";
             return;
         }
-
-        # Prefer whichever tree was built most recently, comparing each build
-        # system's log rather than a product binary (which goes stale after a
-        # partial build like JSC-only): the CMake tree's .ninja_log vs Xcode's
-        # XCBuildData/build.db. A missing log is mtime 0, degrading to the
-        # Xcode-wins default. build.db is shared across Xcode configurations.
-        if ($shouldPickLastBuilt && -d $cmakeBuild && -d $xcodeBuild) {
-            my $cmakeMarker = File::Spec->catfile($cmakeBuild, ".ninja_log");
-            my $xcodeMarker = File::Spec->catfile($baseProductDir, "XCBuildData", "build.db");
-            my $cmakeMtime = -f $cmakeMarker ? stat($cmakeMarker)->mtime : 0;
-            my $xcodeMtime = -f $xcodeMarker ? stat($xcodeMarker)->mtime : 0;
-            if ($cmakeMtime > $xcodeMtime) {
-                $isCMakeBuild = 1;
-                print STDERR "Using last-built tree: $cmakeTreeName/$cmakeConfiguration (CMake)\n";
-            } elsif ($xcodeMtime && $cmakeMtime) {
-                print STDERR "Using last-built tree: " . basename($xcodeBuild) . " (Xcode)\n";
-            }
-        }
     }
-}
 
-# Opt a read-only path resolver (e.g. webkit-build-directory) into the
-# last-built tiebreaker in determineIsCMakeBuild(). Must be called before the
-# first isCMakeBuild()/product-directory query, since the result is cached.
-sub enableLastBuiltTiebreaker
-{
-    $shouldPickLastBuilt = 1;
+    $isCMakeBuild = 0;
+    $buildSystemExplanation = "via default";
 }
 
 sub isCMakeBuild()
@@ -3262,6 +3266,36 @@ sub isCMakeBuild()
     return 1 unless isAppleCocoaWebKit();
     determineIsCMakeBuild();
     return $isCMakeBuild;
+}
+
+sub buildSystem()
+{
+    return isCMakeBuild() ? "CMake" : "Xcode";
+}
+
+# Record a setting in the base product directory the way set-webkit-configuration
+# does, so that later commands resolve the same build without being given the
+# same arguments again.
+sub writeBuildSetting($$)
+{
+    my ($fileName, $value) = @_;
+    determineBaseProductDir();
+    make_path($baseProductDir);
+    open SETTING, ">", File::Spec->catfile($baseProductDir, $fileName) or die;
+    print SETTING $value;
+    close SETTING;
+}
+
+# Record every setting given on this command line, so that the settings of the
+# last build are the ones later commands resolve. Only what was passed is
+# written; a setting left out keeps whatever set-webkit-configuration recorded.
+sub recordBuildSettings()
+{
+    writeBuildSetting("Configuration", passedConfiguration()) if passedConfiguration();
+    writeBuildSetting("BuildSystem", passedBuildSystem()) if passedBuildSystem();
+    for my $sanitizer ("ASan", "TSan") {
+        writeBuildSetting($sanitizer, "YES") if passedSanitizer($sanitizer);
+    }
 }
 
 sub determineIsGenerateProjectOnly()
